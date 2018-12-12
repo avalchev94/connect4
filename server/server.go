@@ -7,7 +7,7 @@ import (
 func New() *http.ServeMux {
 	m := http.NewServeMux()
 
-	//m.Handle("/rooms", nil)
+	m.HandleFunc("/rooms", listRooms)
 	m.HandleFunc("/new", newRoom)
 	m.HandleFunc("/join", joinRoom)
 

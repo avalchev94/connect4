@@ -15,4 +15,9 @@ func render(field connect4.Field) {
 		fmt.Println()
 	}
 	fmt.Println("----------------------")
+
+	for i := range field {
+		fmt.Printf(" %d ", i+1)
+	}
+	fmt.Println("\n----------------------")
 }

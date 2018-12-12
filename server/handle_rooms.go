@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -13,6 +14,17 @@ var (
 	rooms    = map[string]Room{}
 	upgrader = websocket.Upgrader{}
 )
+
+func listRooms(w http.ResponseWriter, r *http.Request) {
+	roomNames := []string{}
+	for r := range rooms {
+		roomNames = append(roomNames, r)
+	}
+
+	if err := json.NewEncoder(w).Encode(roomNames); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
 
 func newRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")

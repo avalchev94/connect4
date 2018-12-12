@@ -54,7 +54,7 @@ func (c *Client) Run() error {
 				return err
 			}
 		default:
-			fmt.Printf("Game ended: %s", msg.GameState)
+			fmt.Printf("Game ended: %s\n", msg.GameState)
 			return nil
 		}
 	}
@@ -75,7 +75,7 @@ func (c *Client) WaitColumn() int {
 }
 
 func (c *Client) ProcessTurn() error {
-	cell, err := c.Field.Update(c.WaitColumn(), c.Color)
+	cell, err := c.Field.Update(c.WaitColumn()-1, c.Color)
 	if err != nil {
 		return err
 	}

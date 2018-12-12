@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -33,17 +34,21 @@ func main() {
 }
 
 func listRooms() {
-	resp, err := http.Get(*addr + "/rooms")
+	resp, err := http.Get(fmt.Sprintf("http://%s/rooms", *addr))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	switch resp.StatusCode {
-	case http.StatusSwitchingProtocols:
-		data := []byte{}
-		resp.Body.Read(data)
+	case http.StatusOK:
+		rooms := []string{}
+		if err := json.NewDecoder(resp.Body).Decode(&rooms); err != nil {
+			log.Fatalf("Reading rooms failed: %s", err)
+		}
 
-		fmt.Println(string(data))
+		for i, r := range rooms {
+			fmt.Printf("%d. %s\n", i+1, r)
+		}
 	default:
 		log.Fatal(resp.Status)
 	}
