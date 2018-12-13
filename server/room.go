@@ -3,15 +3,26 @@ package server
 import (
 	"fmt"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/avalchev94/connect4"
 )
 
-type Room struct {
+type room struct {
+	Name    string
 	Players players
 	Game    *connect4.Game
 }
 
-func (r Room) Run() error {
+func newRoom(name string /*, gameOptions*/) room {
+	return room{
+		Name:    name,
+		Players: players{},
+		Game:    connect4.NewGame(7, 6, connect4.RedPlayer),
+	}
+}
+
+func (r room) Run() error {
 	if err := r.Players.StartGame(r.Game.Player()); err != nil {
 		return err
 	}
@@ -52,4 +63,15 @@ func (r Room) Run() error {
 	}
 
 	return nil
+}
+
+func (r room) AddPlayer(conn *websocket.Conn) {
+	switch len(r.Players) {
+	case 0:
+		r.Players[connect4.RedPlayer] = player{conn, connect4.RedColor}
+	case 1:
+		r.Players[connect4.YellowPlayer] = player{conn, connect4.YellowColor}
+	default:
+		// todo: add watchers
+	}
 }

@@ -9,7 +9,7 @@ type Game struct {
 	four   []Cell
 }
 
-func New(cols, rows int, starting Player) *Game {
+func NewGame(cols, rows int, starting Player) *Game {
 	return &Game{
 		field:  NewField(cols, rows),
 		player: starting,

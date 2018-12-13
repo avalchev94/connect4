@@ -5,17 +5,15 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/avalchev94/connect4"
-
 	"github.com/gorilla/websocket"
 )
 
 var (
-	rooms    = map[string]Room{}
+	rooms    = map[string]room{}
 	upgrader = websocket.Upgrader{}
 )
 
-func listRooms(w http.ResponseWriter, r *http.Request) {
+func handleListRooms(w http.ResponseWriter, r *http.Request) {
 	roomNames := []string{}
 	for r := range rooms {
 		roomNames = append(roomNames, r)
@@ -26,7 +24,7 @@ func listRooms(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func newRoom(w http.ResponseWriter, r *http.Request) {
+func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if len(name) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -46,19 +44,14 @@ func newRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rooms[name] = Room{
-		Players: players{
-			connect4.RedPlayer: player{
-				Conn:  conn,
-				Color: connect4.RedColor,
-			},
-		},
-		Game: connect4.New(7, 6, connect4.RedPlayer),
-	}
+	room := newRoom(name)
+	room.AddPlayer(conn)
+	rooms[name] = room
+
 	log.Printf("New room %s was created.", name)
 }
 
-func joinRoom(w http.ResponseWriter, r *http.Request) {
+func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if len(name) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -79,11 +72,7 @@ func joinRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	room := rooms[name]
-	room.Players[connect4.YellowPlayer] = player{
-		Conn:  conn,
-		Color: connect4.YellowColor,
-	}
-
+	room.AddPlayer(conn)
 	log.Printf("Second player joined %s room.", name)
 	go func() {
 		if err := room.Run(); err != nil {
