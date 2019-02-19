@@ -1,5 +1,9 @@
 package connect4
 
+import (
+	"github.com/avalchev94/tarantula/games"
+)
+
 // Color describes the state of a single cell
 type Color int8
 
@@ -12,28 +16,6 @@ const (
 	YellowColor
 )
 
-func ParseColor(b []byte) Color {
-	switch string(b) {
-	case "R":
-		return RedColor
-	case "Y":
-		return YellowColor
-	default:
-		return NullColor
-	}
-}
-
-func (c Color) String() string {
-	switch c {
-	case RedColor:
-		return "R"
-	case YellowColor:
-		return "Y"
-	default:
-		return "_"
-	}
-}
-
 func (c Color) Next() Color {
 	switch c {
 	case RedColor:
@@ -41,4 +23,8 @@ func (c Color) Next() Color {
 	default:
 		return RedColor
 	}
+}
+
+func (c Color) PlayerID() games.PlayerID {
+	return games.PlayerID(c)
 }

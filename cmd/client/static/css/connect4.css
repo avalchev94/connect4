@@ -1,0 +1,97 @@
+.content {
+  width: 30%;
+  margin: 0 auto;
+  padding: 3px 10px;
+
+  background-color: #4CAF50;
+  border-radius: 4px;
+  box-shadow: 1px 1px 5px #2b2b2b;
+}
+
+.content h1 {
+  text-align: center;  
+  font-family: Arial, Helvetica, sans-serif;
+  color: #fff;
+}
+
+.content table {
+  margin: 0 auto;
+}
+
+.content table td {
+  width: 50px;
+  height: 50px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px #2b2b2b inset;
+}
+
+.content table td.red {
+  background: #be2424;
+}
+
+.content table td.yellow {
+  background: #e4d238;
+}
+
+.game-info {
+  width: 100%;
+  margin: 0 auto;
+  margin-top: 35px;
+  padding-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.game-info .player {
+  width: 35%;
+  height: 50px;
+  display: flex;
+}
+
+.game-info .player .circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+.game-info .player.red {
+  border-radius: 5px;
+  padding: 5px 10px;
+}
+
+.game-info .player.yellow {
+  border-radius: 5px;
+  padding: 5px 10px;
+  justify-content: flex-end
+}
+
+.game-info .on-move {
+  background-color:rgb(31, 80, 32);
+  box-shadow: 1px 1px 5px #2b2b2b inset;
+}
+
+.game-info .player.red .circle {
+  background-color: #be2424;
+}
+
+.game-info .player.yellow .circle {
+  background-color: #e4d238;
+}
+
+.game-info .player .name {
+  position: relative;
+  top: 25%;
+
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14pt;
+  color: #fff;
+}
+
+.game-info .player.red .name {
+  margin-left: 10px;
+}
+
+.game-info .player.yellow .name {
+  margin-right: 10px;
+}

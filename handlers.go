@@ -1,25 +1,45 @@
-package server
+package tarantula
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
 
+	"github.com/avalchev94/tarantula/games/connect4"
 	"github.com/gorilla/websocket"
 )
 
 var (
-	rooms    = map[string]room{}
-	upgrader = websocket.Upgrader{}
+	rooms    = map[string]Room{}
+	upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
 )
 
+func enableCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		next.ServeHTTP(w, r)
+	}
+}
+
 func handleListRooms(w http.ResponseWriter, r *http.Request) {
-	roomNames := []string{}
-	for r := range rooms {
-		roomNames = append(roomNames, r)
+	roomsData := []interface{}{}
+	for _, r := range rooms {
+		data := struct {
+			Name    string
+			Players int
+			Game    string
+		}{r.Name, len(r.Players), r.Game.Name()}
+
+		roomsData = append(roomsData, data)
 	}
 
-	if err := json.NewEncoder(w).Encode(roomNames); err != nil {
+	if err := json.NewEncoder(w).Encode(roomsData); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
@@ -38,17 +58,14 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
+	rooms[name] = Room{
+		Name:    name,
+		Game:    connect4.NewGame(7, 6),
+		Players: Players{},
 	}
-
-	room := newRoom(name)
-	room.AddPlayer(conn)
-	rooms[name] = room
-
 	log.Printf("New room %s was created.", name)
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
@@ -73,10 +90,12 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 
 	room := rooms[name]
 	room.AddPlayer(conn)
-	log.Printf("Second player joined %s room.", name)
-	go func() {
-		if err := room.Run(); err != nil {
-			log.Fatalf("Game Run failed: %s", err)
-		}
-	}()
+
+	if len(room.Players) == 2 {
+		go func() {
+			if err := room.Run(); err != nil {
+				log.Fatalf("Game Run failed: %s", err)
+			}
+		}()
+	}
 }

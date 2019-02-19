@@ -1,0 +1,86 @@
+body {
+  background-image: url('../images/background.jpg');
+}
+
+.content {
+  width: 500px;
+  height: auto;
+  margin: 0 auto;
+  padding: 20px;
+  padding-top: 0px;
+
+  border: 1px solid #a0a0a0;
+  border-radius: 4px;
+
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #fff;
+  color: rgb(31, 80, 32);
+}
+
+.content .rooms {
+  width: 100%;
+}
+
+.content .rooms table {
+  width: 100%;
+}
+
+.content .rooms table td, 
+.content .rooms .no-rooms {
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+  background-color: #f8f4f4;
+  color: rgb(31, 80, 32);
+}
+
+.content .rooms .join_button {
+  height: 100%;
+  background-color: #4CAF50;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.content .rooms .join_button:hover {
+  background-color: #45a049;
+}
+
+.content .rooms .join_button::before {
+  content: "Join"
+}
+
+.content .rooms .join_button a {
+  text-decoration: none;
+  font-size: 11pt;
+  color: white;
+}
+
+.content .form {
+  width: 200px;
+}
+
+.content .form input {
+  width: 100%;
+  padding: 8px 10px;
+  margin: 8px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.content .form button {
+  width: 100%;
+  background-color: #4CAF50;
+  color: white;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.content .form button:hover {
+  background-color: #45a049;
+}

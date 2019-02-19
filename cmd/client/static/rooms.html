@@ -1,0 +1,31 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Tarantula</title>
+  <link rel="stylesheet" type="text/css" media="screen" href="/static/css/rooms.css"/>
+  <script src="/static/js/rooms.js"></script>
+</head>
+<body>
+  <div class="content">
+    <h2>Join room:</h2>
+    <div class="rooms">
+      <table class="rooms-table">
+        <tr>
+          <th width="40%">Room name</th>
+          <th width="15%">Players</th>
+          <th width="30%">Game name</th>
+          <th width="15%"></th>
+        </tr>
+      </table>
+      <div class="no-rooms">No available rooms</div>
+    </div>
+    <h2>or create new:</h2>
+    <div class="form">
+      <input type="text" name="room_name" placeholder="Room name..." required>
+      <button onclick="createRoom()">Create</button>
+    </div>
+  </div>
+</body>
+</html>
