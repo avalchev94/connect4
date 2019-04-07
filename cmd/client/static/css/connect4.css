@@ -1,24 +1,31 @@
+body {
+  background-image: url('../images/connect4-background.jpg')
+}
+
 .content {
   width: 30%;
   margin: 0 auto;
-  padding: 3px 10px;
+  margin-bottom: 10px;
+  padding: 5px;
 
   background-color: #4CAF50;
   border-radius: 4px;
   box-shadow: 1px 1px 5px #2b2b2b;
-}
 
-.content h1 {
-  text-align: center;  
   font-family: Arial, Helvetica, sans-serif;
   color: #fff;
 }
 
-.content table {
+.game h1 {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.game table {
   margin: 0 auto;
 }
 
-.content table td {
+.game table td {
   width: 50px;
   height: 50px;
   background: #fff;
@@ -26,72 +33,108 @@
   box-shadow: 0 1px 3px #2b2b2b inset;
 }
 
-.content table td.red {
+.game table td.red {
   background: #be2424;
 }
 
-.content table td.yellow {
-  background: #e4d238;
+.game table td.yellow {
+  background: #fce411;
 }
 
-.game-info {
+.game .game-info {
   width: 100%;
   margin: 0 auto;
-  margin-top: 35px;
-  padding-bottom: 20px;
+  margin-top: 25px;
+  padding-bottom: 5px;
   display: flex;
   justify-content: space-between;
 }
 
-.game-info .player {
+.game .game-info .player {
   width: 35%;
   height: 50px;
   display: flex;
 }
 
-.game-info .player .circle {
+.game .game-info .player .circle {
   width: 50px;
   height: 50px;
   border-radius: 50%;
 }
 
-.game-info .player.red {
+.game .game-info .player.red {
   border-radius: 5px;
   padding: 5px 10px;
 }
 
-.game-info .player.yellow {
+.game .game-info .player.yellow {
   border-radius: 5px;
   padding: 5px 10px;
   justify-content: flex-end
 }
 
-.game-info .on-move {
+.game .game-info .on-move {
   background-color:rgb(31, 80, 32);
   box-shadow: 1px 1px 5px #2b2b2b inset;
 }
 
-.game-info .player.red .circle {
+.game .game-info .player.red .circle {
   background-color: #be2424;
 }
 
-.game-info .player.yellow .circle {
-  background-color: #e4d238;
+.game .game-info .player.yellow .circle {
+  background-color: #fce411;
 }
 
-.game-info .player .name {
+.game .game-info .player .name {
   position: relative;
-  top: 25%;
+  top: 30%;
 
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 14pt;
-  color: #fff;
+  font-size: 12pt;
 }
 
-.game-info .player.red .name {
+.game .game-info .player.red .name {
   margin-left: 10px;
 }
 
-.game-info .player.yellow .name {
+.game .game-info .player.yellow .name {
   margin-right: 10px;
+}
+
+.message {
+  padding-top: 20px;
+  font-size: 16pt;
+}
+
+.message div {
+  width: max-content;
+  margin: 0 auto;
+}
+
+.message .loading-dots {
+  background: url('../images/connect4-loading.gif');
+  background-repeat: no-repeat;
+  width: 69px;
+  height: 69px;
+}
+
+.message .rematch {
+  padding: 10px;
+  margin: 5px auto;
+  background-color: #fff;
+  color: #275228;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12pt;
+  font-weight: bold;
+  box-shadow: 1px 1px 1px #2b2b2b;
+  user-select: none;
+}
+
+.message .rematch:hover {
+  background-color: #dfdede;
+}
+
+.message .rematch:active {
+  box-shadow: inset 1px 1px 1px #2b2b2b;
 }

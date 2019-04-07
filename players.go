@@ -2,7 +2,6 @@ package tarantula
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/avalchev94/tarantula/games"
 	"github.com/gorilla/websocket"
@@ -11,7 +10,6 @@ import (
 type Players map[games.PlayerID]*websocket.Conn
 
 func (p Players) StartGame(firstPlayer games.PlayerID) error {
-	log.Println("starting game")
 	for id, conn := range p {
 		if err := conn.WriteJSON(Message{
 			Player: id,

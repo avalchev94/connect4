@@ -92,10 +92,11 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	room.AddPlayer(conn)
 
 	if len(room.Players) == 2 {
-		go func() {
+		go func(name string) {
+			log.Printf("Room '%s' is starting", name)
 			if err := room.Run(); err != nil {
-				log.Fatalf("Game Run failed: %s", err)
+				log.Fatalf("Room '%s' failed: %s", name, err)
 			}
-		}()
+		}(name)
 	}
 }

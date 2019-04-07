@@ -9,7 +9,7 @@
   <script src="/static/js/connect4.js"></script> 
 </head>
 <body>
-  <div class="content">
+  <div class="content game">
     <h1>Connect 4</h1>
     <div class="field">
     </div>
@@ -17,12 +17,38 @@
     <div class="game-info">
       <div class="player red">
         <div class="circle"></div>
-        <div class="name">Asen</div>
+        <div class="name" id="red-name"></div>
       </div>
       <div class="player yellow">
-        <div class="name">Elitsa</div>
+        <div class="name" id="yellow-name"></div>
         <div class="circle"></div>
       </div>
+    </div>
+  </div>
+  <div class="content message">
+    <div class="waiting-opponent">
+      Waiting for an opponent
+      <div class="loading-dots"></div>
+    </div>
+
+    <div class="end win">
+      You won the game!
+      <div class="rematch">Again?</div>
+    </div>
+
+    <div class="end loss">
+      You lost the game!
+      <div class="rematch">Again?</div>
+    </div>
+
+    <div class="end draw">
+      Draw!
+      <div class="rematch">Again?</div>
+    </div>
+
+    <div class="disconnected">
+      Your opponent lost internet connection
+      <div class="loading-dots"></div>
     </div>
   </div>
 </body>
