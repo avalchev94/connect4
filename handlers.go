@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/avalchev94/tarantula/games/connect4"
 	"github.com/gorilla/websocket"
 )
 
 var (
-	rooms    = map[string]Room{}
+	rooms    = NewRooms()
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -29,15 +31,15 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 
 func handleListRooms(w http.ResponseWriter, r *http.Request) {
 	roomsData := []interface{}{}
-	for _, r := range rooms {
-		data := struct {
-			Name    string
-			Players int
-			Game    string
-		}{r.Name, len(r.Players), r.Game.Name()}
+	// for name, r := range rooms {
+	// 	data := struct {
+	// 		Name    string
+	// 		Players int
+	// 		Game    string
+	// 	}{name, len(r.Players), r.Game.Name()}
 
-		roomsData = append(roomsData, data)
-	}
+	// 	roomsData = append(roomsData, data)
+	// }
 
 	if err := json.NewEncoder(w).Encode(roomsData); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -46,39 +48,38 @@ func handleListRooms(w http.ResponseWriter, r *http.Request) {
 
 func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
-	if len(name) == 0 {
+	err := rooms.Add(name, &Room{
+		Mutex: &sync.Mutex{},
+		Game:  connect4.NewGame(7, 6),
+	})
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Empty room name"))
+		w.Write([]byte(err.Error()))
 		return
 	}
 
-	if _, ok := rooms[name]; ok {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Already used room name"))
-		return
-	}
-
-	rooms[name] = Room{
-		Name:    name,
-		Game:    connect4.NewGame(7, 6),
-		Players: Players{},
-	}
-	log.Printf("New room %s was created.", name)
-
+	log.Printf("Room '%s' was created.", name)
 	w.WriteHeader(http.StatusCreated)
+
+	go func(name string) {
+		// wait a few seconds and check if player has joined the room
+		<-time.NewTimer(10 * time.Second).C
+
+		// if no players, delete the room
+		room, err := rooms.Get(name)
+		if err == nil && len(room.Players) == 0 {
+			rooms.Delete(name)
+		}
+
+	}(name)
 }
 
 func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
-	if len(name) == 0 {
+	room, err := rooms.Get(name)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Empty room name"))
-		return
-	}
-
-	if _, ok := rooms[name]; !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("No such room name"))
+		w.Write([]byte(err.Error()))
 		return
 	}
 

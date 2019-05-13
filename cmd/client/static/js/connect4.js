@@ -174,7 +174,10 @@ class Connect4 {
   }
 
   onColumnClick(col) {
-    if (this.currentPlayer == this.originPlayer) {
+    if ( this.currentPlayer 
+      && this.originPlayer
+      && this.currentPlayer == this.originPlayer
+    ) {
       this.onaction({col: col, row: -1})
     }
   }
@@ -186,7 +189,7 @@ window.onload = function() {
   var roomName = window.location.pathname.split('/').pop()
 
   tarantula = new Tarantula(
-    new Connect4(7, 6), 
+    new Connect4(7, 6),
     new WebSocket('ws://localhost:8080/join?name='+roomName)
   )
 }
