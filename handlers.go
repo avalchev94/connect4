@@ -49,12 +49,12 @@ func handleListRooms(w http.ResponseWriter, r *http.Request) {
 func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	err := rooms.Add(name, &Room{
-		Mutex: &sync.Mutex{},
-		Game:  connect4.NewGame(7, 6),
+		Mutex:   &sync.Mutex{},
+		Game:    connect4.NewGame(7, 6),
+		Players: Players{},
 	})
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -62,7 +62,7 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	go func(name string) {
-		// wait a few seconds and check if player has joined the room
+		// wait a few seconds and check if a player has joined the room
 		<-time.NewTimer(10 * time.Second).C
 
 		// if no players, delete the room
@@ -78,23 +78,25 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	room, err := rooms.Get(name)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	room := rooms[name]
-	room.AddPlayer(conn)
+	if err := room.AddPlayer(conn); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
+	// TODO: start the game on user's request
 	if len(room.Players) == 2 {
 		go func(name string) {
-			log.Printf("Room '%s' is starting", name)
+			log.Printf("Room '%s' is starting...", name)
 			if err := room.Run(); err != nil {
 				log.Fatalf("Room '%s' failed: %s", name, err)
 			}
