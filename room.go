@@ -9,7 +9,7 @@ import (
 
 type Message struct {
 	Move   games.MoveData
-	Player games.PlayerID
+	Player games.PlayerUUID
 	State  games.GameState
 }
 
@@ -19,7 +19,7 @@ type Room struct {
 	games.Game
 }
 
-func (r Room) Run() error {
+func (r *Room) Run() error {
 	if err := r.Players.StartGame(r.CurrentPlayer()); err != nil {
 		return err
 	}
@@ -49,13 +49,15 @@ func (r Room) Run() error {
 	return r.Players.EndGame(r.State(), r.CurrentPlayer())
 }
 
-func (r Room) AddPlayer(conn *websocket.Conn) error {
-	id, err := r.Game.AddPlayer()
-	if err != nil {
+func (r *Room) AddPlayer(conn *websocket.Conn, uuid games.PlayerUUID) error {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	// if not, AddPlayer in the game and in the players' map
+	if err := r.Game.AddPlayer(uuid); err != nil {
 		return err
 	}
-
-	r.Players[id] = conn
+	r.Players[uuid] = conn
 
 	return nil
 }

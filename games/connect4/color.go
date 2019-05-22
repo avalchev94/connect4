@@ -1,9 +1,5 @@
 package connect4
 
-import (
-	"github.com/avalchev94/tarantula/games"
-)
-
 // Color describes the state of a single cell
 type Color int8
 
@@ -23,8 +19,4 @@ func (c Color) Next() Color {
 	default:
 		return RedColor
 	}
-}
-
-func (c Color) PlayerID() games.PlayerID {
-	return games.PlayerID(c)
 }

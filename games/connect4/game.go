@@ -12,7 +12,7 @@ const (
 
 type Game struct {
 	field      Field
-	players    map[Color]bool
+	players    map[Color]games.PlayerUUID
 	currPlayer Color
 	state      games.GameState
 }
@@ -20,21 +20,28 @@ type Game struct {
 func NewGame(cols, rows int) *Game {
 	return &Game{
 		field:      NewField(cols, rows),
-		players:    map[Color]bool{},
+		players:    map[Color]games.PlayerUUID{},
 		currPlayer: RedColor,
 		state:      games.Running,
 	}
 }
 
-func (g *Game) Move(player games.PlayerID, move games.MoveData) error {
+func (g *Game) Move(player games.PlayerUUID, move games.MoveData) error {
 	data, ok := move.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("unsuccessful cast MoveData to map[string]interface{}")
 	}
 
-	col := int(data["col"].(float64))
+	color := NullColor
+	for c, u := range g.players {
+		if u == player {
+			color = c
+			break
+		}
+	}
 
-	return g.moveInternal(Color(player), col)
+	column := int(data["col"].(float64))
+	return g.moveInternal(color, column)
 }
 
 func (g *Game) moveInternal(player Color, column int) error {
@@ -69,21 +76,21 @@ func (g *Game) State() games.GameState {
 	return g.state
 }
 
-func (g *Game) AddPlayer() (games.PlayerID, error) {
-	switch {
-	case len(g.players) == maxPlayers:
-		return NullColor.PlayerID(), fmt.Errorf("game has reached maximum players")
-	case g.players[RedColor]:
-		g.players[YellowColor] = true
-		return YellowColor.PlayerID(), nil
-	default:
-		g.players[RedColor] = true
-		return RedColor.PlayerID(), nil
+func (g *Game) AddPlayer(playerUUID games.PlayerUUID) error {
+	if len(g.players) == maxPlayers {
+		return fmt.Errorf("game has reached maximum players")
 	}
+
+	if _, ok := g.players[RedColor]; !ok {
+		g.players[YellowColor] = playerUUID
+	} else {
+		g.players[RedColor] = playerUUID
+	}
+	return nil
 }
 
-func (g *Game) CurrentPlayer() games.PlayerID {
-	return g.currPlayer.PlayerID()
+func (g *Game) CurrentPlayer() games.PlayerUUID {
+	return g.players[g.currPlayer]
 }
 
 func (g *Game) Name() string {

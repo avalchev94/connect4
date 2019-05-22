@@ -7,6 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avalchev94/tarantula/games"
+
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/avalchev94/tarantula/games/connect4"
 	"github.com/gorilla/websocket"
 )
@@ -61,22 +65,24 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Room '%s' was created.", name)
 	w.WriteHeader(http.StatusCreated)
 
-	go func(name string) {
-		// wait a few seconds and check if a player has joined the room
-		<-time.NewTimer(10 * time.Second).C
-
-		// if no players, delete the room
+	// Wait certain time, if no client joins, delete room
+	time.AfterFunc(10*time.Second, func() {
 		room, err := rooms.Get(name)
 		if err == nil && len(room.Players) == 0 {
 			rooms.Delete(name)
 		}
-
-	}(name)
+	})
 }
 
 func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	room, err := rooms.Get(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	uuid, err := uuid.FromString(r.URL.Query().Get("uuid"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -88,7 +94,7 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := room.AddPlayer(conn); err != nil {
+	if err := room.AddPlayer(conn, games.PlayerUUID(uuid)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -1,6 +1,8 @@
 package tarantula
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func NewServer() *http.ServeMux {
 	m := http.NewServeMux()
