@@ -5,6 +5,13 @@ const STATE = {
   EndWin: 3
 }
 
+// interface Game {
+//    render() // render the UI
+//    start(player) // game starts, first is given player
+//    move(player, move) // player has made move
+//    end(state, player) // game ended with state
+// }
+
 class Tarantula {
   constructor(game, socket) {
     this.game = game
@@ -12,6 +19,9 @@ class Tarantula {
 
     this.socket = socket
     this.socket.onmessage = this.onMessage.bind(this)
+    this.socket.onerror = function(event) {
+      console.log(event)
+    };
 
     this.game.render()
   }

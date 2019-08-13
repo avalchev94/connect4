@@ -1,7 +1,7 @@
 package connect4
 
 // Color describes the state of a single cell
-type Color int8
+type Color int
 
 const (
 	// NullColor - cell is empty

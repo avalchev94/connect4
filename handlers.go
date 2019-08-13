@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/avalchev94/tarantula/games"
-
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/avalchev94/tarantula/games/connect4"
@@ -69,6 +67,7 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	time.AfterFunc(10*time.Second, func() {
 		room, err := rooms.Get(name)
 		if err == nil && len(room.Players) == 0 {
+			log.Printf("Deleting room '%s'. Room is empty after 10 seconds...", name)
 			rooms.Delete(name)
 		}
 	})
@@ -82,8 +81,8 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uuid, err := uuid.FromString(r.URL.Query().Get("uuid"))
-	if err != nil {
+	uuidStr := r.URL.Query().Get("uuid")
+	if _, err := uuid.FromString(uuidStr); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -94,18 +93,18 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := room.AddPlayer(conn, games.PlayerUUID(uuid)); err != nil {
+	if err := room.AddPlayer(uuidStr, conn); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// TODO: start the game on user's request
 	if len(room.Players) == 2 {
-		go func(name string) {
+		go func() {
 			log.Printf("Room '%s' is starting...", name)
 			if err := room.Run(); err != nil {
 				log.Fatalf("Room '%s' failed: %s", name, err)
 			}
-		}(name)
+		}()
 	}
 }

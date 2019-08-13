@@ -12,7 +12,7 @@ const (
 
 type Game struct {
 	field      Field
-	players    map[Color]games.PlayerUUID
+	players    []Color
 	currPlayer Color
 	state      games.GameState
 }
@@ -20,24 +20,21 @@ type Game struct {
 func NewGame(cols, rows int) *Game {
 	return &Game{
 		field:      NewField(cols, rows),
-		players:    map[Color]games.PlayerUUID{},
+		players:    []Color{},
 		currPlayer: RedColor,
 		state:      games.Running,
 	}
 }
 
-func (g *Game) Move(player games.PlayerUUID, move games.MoveData) error {
+func (g *Game) Move(player games.PlayerID, move games.MoveData) error {
 	data, ok := move.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("unsuccessful cast MoveData to map[string]interface{}")
 	}
 
-	color := NullColor
-	for c, u := range g.players {
-		if u == player {
-			color = c
-			break
-		}
+	color := Color(player)
+	if color != RedColor && color != YellowColor {
+		return fmt.Errorf("player with id %v does not exist", player)
 	}
 
 	column := int(data["col"].(float64))
@@ -76,21 +73,22 @@ func (g *Game) State() games.GameState {
 	return g.state
 }
 
-func (g *Game) AddPlayer(playerUUID games.PlayerUUID) error {
+func (g *Game) AddPlayer() (games.PlayerID, error) {
 	if len(g.players) == maxPlayers {
-		return fmt.Errorf("game has reached maximum players")
+		return -1, fmt.Errorf("game has reached maximum players")
 	}
 
-	if _, ok := g.players[RedColor]; !ok {
-		g.players[YellowColor] = playerUUID
-	} else {
-		g.players[RedColor] = playerUUID
+	if len(g.players) == 0 {
+		g.players = append(g.players, RedColor)
+		return games.PlayerID(RedColor), nil
 	}
-	return nil
+
+	g.players = append(g.players, YellowColor)
+	return games.PlayerID(YellowColor), nil
 }
 
-func (g *Game) CurrentPlayer() games.PlayerUUID {
-	return g.players[g.currPlayer]
+func (g *Game) CurrentPlayer() games.PlayerID {
+	return games.PlayerID(g.currPlayer)
 }
 
 func (g *Game) Name() string {
