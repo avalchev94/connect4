@@ -14,12 +14,12 @@ function updateRooms() {
     resp.json().then(function(rooms){
       rooms.forEach(function(room){
         var row = table.insertRow()
-        row.insertCell().innerText = room.Name
-        row.insertCell().innerText = room.Players + '/2'
-        row.insertCell().innerText = room.Game
+        row.insertCell().innerText = room.name
+        row.insertCell().innerText = room.players + '/2'
+        row.insertCell().innerText = room.game
         var joinButton = row.insertCell()
         joinButton.className = 'join_button'
-        joinButton.onclick = joinRoom.bind(null, room.Name)
+        joinButton.onclick = joinRoom.bind(null, room)
       })
     }).then(function(){
       noRooms.hidden = table.rows.length > 1
@@ -30,7 +30,8 @@ function updateRooms() {
 
 function createRoom() {
   var body = {
-    name: document.getElementsByName('room_name')[0].value
+    name: document.getElementsByName('room_name')[0].value,
+    game: document.getElementsByName('game_name')[0].value
     // settigs
   }
   
@@ -40,7 +41,7 @@ function createRoom() {
   })
   .then((resp) => {
     if (resp.status == 201) {
-      joinRoom(body.name)
+      joinRoom(body)
     } else {
       throw resp.text()
     }
@@ -53,14 +54,14 @@ function createRoom() {
 
 }
 
-function joinRoom(name) {
-  fetch(`http://${hostname}:8080/rooms/${name}/join`, {
+function joinRoom(room) {
+  fetch(`http://${hostname}:8080/rooms/${room.name}/join`, {
     method: 'POST',
     credentials: 'include'
   })
   .then((resp) => {
     if (resp.ok) {
-      document.location.href = "/connect4/" + name
+      document.location.href = `/${room.game}/${room.name}`
     } else {
       throw resp.text()
     }

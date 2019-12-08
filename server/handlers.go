@@ -8,6 +8,7 @@ import (
 	"github.com/avalchev94/tarantula"
 	"github.com/avalchev94/tarantula/games"
 	"github.com/avalchev94/tarantula/games/connect4"
+	"github.com/avalchev94/tarantula/games/poker"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -29,9 +30,9 @@ func handleListRooms(w http.ResponseWriter, r *http.Request) {
 	roomsData := []interface{}{}
 	rooms.ForEach(func(name string, r *tarantula.Room) error {
 		data := struct {
-			Name    string
-			Players int
-			Game    string
+			Name    string `json:"name"`
+			Players int    `json:"players"`
+			Game    string `json:"game"`
 		}{name, r.PlayersCount(), r.GameSettings().Name()}
 		roomsData = append(roomsData, data)
 
@@ -46,7 +47,7 @@ func handleListRooms(w http.ResponseWriter, r *http.Request) {
 func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	body := struct {
 		Name string `json:"name"`
-		// settings
+		Game string `json:"game"`
 	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -54,13 +55,21 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room := tarantula.NewRoom(connect4.NewGame(7, 6))
+	var game games.Game
+	switch body.Game {
+	case "connect4":
+		game = connect4.NewGame(7, 6)
+	case "poker":
+		game = poker.NewGame("ip:port", body.Name)
+	}
+
+	room := tarantula.NewRoom(game)
 	if err := rooms.Add(body.Name, room); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Printf("Room '%s' was created.", body.Name)
 
+	log.Printf("Room '%s' was created.", body.Name)
 	w.WriteHeader(http.StatusCreated)
 
 	go room.Run()
