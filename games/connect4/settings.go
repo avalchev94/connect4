@@ -6,5 +6,5 @@ type Settings struct {
 }
 
 func (s Settings) Name() string {
-	return "Connect4"
+	return "connect4"
 }

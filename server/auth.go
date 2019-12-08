@@ -12,11 +12,17 @@ import (
 var (
 	hashKey      = []byte("fd2a388a983c529183e323178364474f13ac273619337fa09b9291f7b59dbba8")
 	secureCookie = securecookie.New(hashKey, nil)
+	allowedHosts = []string{"http://192.168.1.100:8081", "http://localhost:8081"}
 )
 
 func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://192.168.1.100:8081")
+		originHost := r.Header["Origin"][0]
+		for i := range allowedHosts {
+			if originHost == allowedHosts[i] {
+				w.Header().Set("Access-Control-Allow-Origin", originHost)
+			}
+		}
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		next.ServeHTTP(w, r)
 	})
