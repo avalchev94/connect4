@@ -1,8 +1,17 @@
-const STATE = {
+const State = {
   Starting: 0,
   Running: 1,
-  EndDraw: 2,
-  EndWin: 3
+  Paused: 2,
+  EndDraw: 3,
+  EndWin: 4
+}
+
+const MessageType = {
+	GameStarting: 0,
+	GameEnded: 1,
+	PlayerMove: 2,
+	PlayerJoined: 3,
+	PlayerLeft: 4
 }
 
 // interface Game {
@@ -28,26 +37,29 @@ class Tarantula {
 
   onMove(move) {
     var msg = {
-      Move: move,
-      Player: this.game.playerID()
+      type: MessageType.PlayerMove,
+      payload: {
+        player: this.game.playerID(),
+        move: move
+      }
     }
 
-    this.game.move(msg.Player, msg.Move)
+    this.game.move(this.game.playerID(), move)
     this.socket.send(JSON.stringify(msg))
   }
 
   onMessage(event) {
     var msg = JSON.parse(event.data)
-    switch (msg.State) {
-    case STATE.Starting:
-      this.game.start(msg.Player)
+
+    switch (msg.type) {
+    case MessageType.GameStarting:
+      this.game.start(msg.payload.starting)
       break
-    case STATE.Running:
-      this.game.move(msg.Player, msg.Move)
+    case MessageType.GameEnded:
+      this.game.end(msg.payload.state, msg.payload.winner)
       break
-    case STATE.EndDraw:
-    case STATE.EndWin:
-      this.game.end(msg.State, msg.Player)
+    case MessageType.PlayerMove:
+      this.game.move(msg.payload.player, msg.payload.move)
       break
     }
   }

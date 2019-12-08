@@ -1,3 +1,5 @@
+var hostname = document.location.hostname
+
 function updateRooms() {
   var table = document.getElementsByClassName('rooms-table')[0]
   var noRooms = document.getElementsByClassName('no-rooms')[0]
@@ -8,7 +10,7 @@ function updateRooms() {
   }
 
   // fetch new rooms
-  fetch('http://localhost:8080/rooms').then(function(resp){
+  fetch(`http://${hostname}:8080/rooms`).then(function(resp){
     resp.json().then(function(rooms){
       rooms.forEach(function(room){
         var row = table.insertRow()
@@ -27,18 +29,48 @@ function updateRooms() {
 }
 
 function createRoom() {
-  var roomName = document.getElementsByName('room_name')[0].value
+  var body = {
+    name: document.getElementsByName('room_name')[0].value
+    // settigs
+  }
   
-  fetch('http://localhost:8080/new?name='+roomName).then(function(resp){
+  fetch(`http://${hostname}:8080/rooms/new`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  .then((resp) => {
     if (resp.status == 201) {
-      window.location.href = "/connect4/"+roomName
+      joinRoom(body.name)
+    } else {
+      throw resp.text()
     }
-  })  
+  })
+  .catch((error) => {
+    error.then((message) => {
+      alert(message)
+    })
+  })
+
 }
 
-function joinRoom(roomName) {
-  window.location.href = "/connect4/"+roomName
-} 
+function joinRoom(name) {
+  fetch(`http://${hostname}:8080/rooms/${name}/join`, {
+    method: 'POST',
+    credentials: 'include'
+  })
+  .then((resp) => {
+    if (resp.ok) {
+      document.location.href = "/connect4/" + name
+    } else {
+      throw resp.text()
+    }
+  })
+  .catch((error) => {
+    error.then((message) => {
+      alert(message)
+    })
+  })
+}
 
 window.onload = function() {
   updateRooms()

@@ -13,10 +13,10 @@ const MESSAGE = {
 }
 
 class Connect4 {
-  constructor(cols, rows) {
+  constructor(cols, rows, playerID) {
     this.cols = cols
     this.rows = rows
-    this.originPlayer = null
+    this.originPlayer = playerID
     this.currentPlayer = null
     this.onaction = null
     
@@ -50,11 +50,8 @@ class Connect4 {
   }
 
   start(player) {
-    this.originPlayer = player
-
-    // red always start first
-    this.playerBox.setPlayerNames(player)
-    this.setCurrentPlayer(COLOR.Red)
+    this.setCurrentPlayer(player)
+    this.playerBox.setPlayerNames(this.originPlayer)
 
     // show playerBox and hide messages
     this.playerBox.show()
@@ -83,16 +80,16 @@ class Connect4 {
     }
   }
 
-  end(state, player) {
+  end(state, winner) {
     switch (state) {
-    case STATE.EndWin:
-      if (player == this.originPlayer) {
+    case State.EndWin:
+      if (winner == this.originPlayer) {
         this.messageBox.show(MESSAGE.GameWon)
       } else {
         this.messageBox.show(MESSAGE.GameLost)
       }
       break
-    case STATE.EndDraw:
+    case State.EndDraw:
       this.messageBox.show(MESSAGE.GameDraw)
       break
     }

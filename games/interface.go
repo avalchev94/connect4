@@ -1,39 +1,51 @@
 package games
 
+import "errors"
+
 // Game abstracts turn(move)-based game.
 // Implement the following methods to use the game server.
 // - Move(MoveData): notifies game engine about player move.
 // - State() GameState: current state of the game.
 // - CurrentPlayer() PlayerID: player that's on move.
 // - AddPlayer() PlayerID: notifies game enging about new player, new id is returned.
-// - Name(): name of the game.
 type Game interface {
+	Start() error
+	Pause() error
+
 	Move(PlayerID, MoveData) error
 	State() GameState
 
 	CurrentPlayer() PlayerID
 	AddPlayer() (PlayerID, error)
 
+	Settings() Settings
+}
+
+// MoveData - data descriping a player move. All games need the "MoveData" in it's
+// specific way. So, every game's frontend and backend should agree on a structure.
+type MoveData interface{}
+
+// Settings - basic game settings, that all games have. For more specific settings,
+// object should be casted to the game's original settings type.
+type Settings interface {
 	Name() string
 }
 
-// MoveData is an interface keeping data for player's move.
-type MoveData interface {
-}
-
-// PlayerID - need to connect the players in the game enging and game server.
+// PlayerID - the connection between game's logic and tarantula's logic.
 type PlayerID int
 
-// GameState is an enum for the basic game states.
+// GameState - basic game state,
 type GameState int8
 
+// Self - descriptive
 const (
-	// Starting - first state sent just before starting
 	Starting GameState = iota
-	// Running - game is in progress
 	Running
-	// EndDraw - game ended as draw.
+	Paused
 	EndDraw
-	// EndWin - game ended as win. Use Game.CurrentPlayer to see who.
 	EndWin
+)
+
+var (
+	PlayersNotEnough = errors.New("players are not enough to start the game")
 )

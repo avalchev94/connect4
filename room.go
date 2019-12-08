@@ -1,72 +1,34 @@
 package tarantula
 
 import (
-	"fmt"
+	"log"
 	"sync"
 
 	"github.com/avalchev94/tarantula/games"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 )
 
 type Room struct {
-	Players Players
-	Mutex   *sync.Mutex
-	games.Game
+	game    games.Game
+	mutex   *sync.Mutex
+	players Players
+	join    chan playerTuple
+	leave   chan string
 }
 
-func (r *Room) Run() error {
-	if err := r.Players.StartGame(); err != nil {
-		return err
+func NewRoom(game games.Game) *Room {
+	return &Room{
+		game:    game,
+		mutex:   &sync.Mutex{},
+		players: Players{},
+		join:    make(chan playerTuple),
+		leave:   make(chan string),
 	}
-
-	for r.State() == games.Running {
-		currPlayer := r.findPlayer(r.CurrentPlayer())
-		if currPlayer == nil {
-			return fmt.Errorf("No existing player connection for %d id", r.CurrentPlayer())
-		}
-
-		// get message from the current player
-		msg, err := currPlayer.Read()
-		if err != nil {
-			return err
-		}
-
-		// update game logic with the message data
-		if err := r.Move(msg.Player, msg.Move); err != nil {
-			return err
-		}
-
-		// send them message to the rest of the players
-		msg.State = games.Running
-		if err := r.Players.Send(msg, currPlayer); err != nil {
-			return err
-		}
-	}
-
-	// end game
-	return r.Players.EndGame(r.State(), r.CurrentPlayer())
-}
-
-func (r *Room) AddPlayer(uuid string, conn *websocket.Conn) error {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
-	// add new player in the game logic
-	playerID, err := r.Game.AddPlayer()
-	if err != nil {
-		return err
-	}
-
-	r.Players[uuid] = &Player{
-		id:     playerID,
-		socket: conn,
-	}
-
-	return nil
 }
 
 func (r *Room) findPlayer(playerID games.PlayerID) *Player {
-	for _, player := range r.Players {
+	for _, player := range r.players {
 		if player.id == playerID {
 			return player
 		}
@@ -74,53 +36,174 @@ func (r *Room) findPlayer(playerID games.PlayerID) *Player {
 	return nil
 }
 
-type Rooms struct {
-	rooms map[string]*Room
-	mutex *sync.RWMutex
+func (r *Room) GameSettings() games.Settings {
+	return r.game.Settings()
 }
 
-func NewRooms() *Rooms {
-	return &Rooms{
-		rooms: map[string]*Room{},
-		mutex: &sync.RWMutex{},
+func (r *Room) PlayersCount() int {
+	return len(r.players)
+}
+
+func (r *Room) PlayerExist(uuid string, playerID games.PlayerID) bool {
+	player, ok := r.players[uuid]
+	if !ok {
+		return false
 	}
+
+	return player.id == playerID
 }
 
-func (r *Rooms) Add(name string, room *Room) error {
+func (r *Room) Join(uuid string) (games.PlayerID, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if len(name) == 0 {
-		return EmptyRoomName
+	playerID, err := r.game.AddPlayer()
+	if err != nil {
+		return -1, err
 	}
 
-	if _, ok := r.rooms[name]; ok {
-		return UsedRoomName
+	r.players[uuid] = NewPlayer(playerID)
+	// todo: check if player actually joined??
+	return playerID, nil
+}
+
+type playerTuple struct {
+	uuid string
+	conn *websocket.Conn
+}
+
+func (r *Room) Connect(uuid string, conn *websocket.Conn) {
+	r.join <- playerTuple{uuid, conn}
+}
+
+func (r *Room) Run() {
+	//moveTimer := time.NewTimer(time.Second)
+
+	for {
+		select {
+		case player := <-r.join:
+			if err := r.handleJoin(player); err != nil {
+				log.Println(err)
+			}
+
+		case player := <-r.leave:
+			if err := r.handleLeave(player); err != nil {
+				log.Println(err)
+			}
+
+		default:
+			switch r.game.State() {
+			case games.Running:
+				if err := r.handleMove(); err != nil {
+					log.Println(err)
+				}
+			case games.EndDraw, games.EndWin:
+				if err := r.handleEnd(); err != nil {
+					log.Println(err)
+				}
+
+				// temp -> no restart for now
+				return
+			}
+		}
+	}
+}
+
+func (r *Room) handleJoin(data playerTuple) error {
+	if r.game.State() == games.Running {
+		return errors.New("the game is running")
 	}
 
-	r.rooms[name] = room
+	// update the socket of that player
+	player := r.players[data.uuid]
+	if player.socket != nil {
+		return errors.New("the connection of this uuid is active")
+	}
+
+	// update player socket and start processing messages
+	player.socket = data.conn
+
+	go func() {
+		if err := player.ProcessMessages(); err != nil {
+			log.Println(err)
+		}
+		r.leave <- data.uuid
+	}()
+
+	// check if there are players with nil sockets
+	for _, p := range r.players {
+		if p.socket == nil {
+			return nil
+		}
+	}
+
+	// try start the game
+	if err := r.game.Start(); err != nil {
+		if err == games.PlayersNotEnough {
+			return nil
+		}
+		return err
+	}
+
+	// send game starting message
+	msg := Message{
+		Type: GameStarting,
+		Payload: payloadGameStarting{
+			Staring: r.game.CurrentPlayer(),
+		},
+	}
+	r.players.SendAll(msg)
 	return nil
 }
 
-func (r *Rooms) Get(name string) (*Room, error) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+func (r *Room) handleLeave(uuid string) error {
+	player := r.players[uuid]
+	player.socket = nil
 
-	if len(name) == 0 {
-		return nil, EmptyRoomName
+	msg := Message{
+		Type: PlayerLeft,
+		Payload: payloadPlayerLeft{
+			Player: player.id,
+		},
 	}
+	r.players.SendBut(msg, player)
 
-	room, ok := r.rooms[name]
-	if !ok {
-		return nil, WrongRoomName
-	}
-
-	return room, nil
+	// pause the game
+	return r.game.Pause()
 }
 
-func (r *Rooms) Delete(name string) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+func (r *Room) handleMove() error {
+	currPlayer := r.findPlayer(r.game.CurrentPlayer())
+	if currPlayer == nil {
+		return errors.Errorf("failed to find current player: %v", r.game.CurrentPlayer())
+	}
 
-	delete(r.rooms, name)
+	msg := currPlayer.Read()
+	movePayload, ok := msg.Payload.(payloadPlayerMove)
+	if !ok {
+		return errors.Errorf("failed to parse move payload: %v", msg)
+	}
+
+	// update game logic with the message data
+	if err := r.game.Move(movePayload.Player, movePayload.Move); err != nil {
+		return err
+	}
+
+	// send them message to the rest of the players
+	r.players.SendBut(msg, currPlayer)
+
+	return nil
+}
+
+func (r *Room) handleEnd() error {
+	msg := Message{
+		Type: GameEnded,
+		Payload: payloadGameEnded{
+			State:  r.game.State(),
+			Winner: r.game.CurrentPlayer(),
+		},
+	}
+
+	r.players.SendAll(msg)
+	return nil
 }

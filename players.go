@@ -1,90 +1,83 @@
 package tarantula
 
 import (
-	"fmt"
-
 	"github.com/avalchev94/tarantula/games"
 	"github.com/gorilla/websocket"
 )
 
-type Message struct {
-	Move   games.MoveData
-	Player games.PlayerID
-	State  games.GameState
-}
-
 type Player struct {
 	id     games.PlayerID
 	socket *websocket.Conn
+	read   chan Message
+	send   chan Message
 }
 
-func (p *Player) Send(msg Message) error {
-	if err := p.socket.WriteJSON(msg); err != nil {
-		// Connection failed
-		p.socket.Close()
-		p.socket = nil
-
-		return err
+func NewPlayer(id games.PlayerID) *Player {
+	return &Player{
+		id:     id,
+		socket: nil,
+		read:   make(chan Message, 100),
+		send:   make(chan Message, 100),
 	}
-	return nil
 }
 
-func (p *Player) Read() (Message, error) {
-	var msg Message
-	if err := p.socket.ReadJSON(&msg); err != nil {
-		// Connection failed
-		p.socket.Close()
-		p.socket = nil
-		return msg, err
-	}
-	return msg, nil
+func (p *Player) Send(msg Message) {
+	p.send <- msg
+}
+
+func (p *Player) Read() Message {
+	return <-p.read
+}
+
+// func (p *Player) Ping() error {
+// 	return p.socket.WriteControl(websocket.PingMessage, nil, time.Now().Add(time.Second))
+// }
+
+func (p *Player) ProcessMessages() error {
+	errorChan := make(chan error, 2)
+
+	// read messages from the socket
+	go func() {
+		for {
+			var msg Message
+			if err := p.socket.ReadJSON(&msg); err != nil {
+				errorChan <- err
+				break
+			}
+			p.read <- msg
+		}
+	}()
+
+	// send messages to the socket
+	go func() {
+		for msg := range p.send {
+			if err := p.socket.WriteJSON(msg); err != nil {
+				// failed to send the message, add it back
+				p.send <- msg
+
+				errorChan <- err
+				break
+			}
+		}
+	}()
+
+	return <-errorChan
 }
 
 type Players map[string]*Player
 
-func (p Players) StartGame() error {
-	for _, player := range p {
-		msg := Message{
-			Player: player.id,
-			State:  games.Starting,
-		}
-		if err := player.Send(msg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p Players) EndGame(state games.GameState, player games.PlayerID) error {
-	if state == games.Starting || state == games.Running {
-		return fmt.Errorf("game has not ended")
-	}
-
-	msg := Message{
-		Player: player,
-		State:  state,
-	}
-	return p.SendAll(msg)
-}
-
-func (p Players) Send(msg Message, sender *Player) error {
+func (p Players) SendBut(msg Message, sender *Player) {
 	for _, player := range p {
 		if player.id == sender.id {
 			continue
 		}
 
-		if err := player.Send(msg); err != nil {
-			return err
-		}
+		player.Send(msg)
 	}
-	return nil
 }
 
-func (p Players) SendAll(msg Message) error {
+func (p Players) SendAll(msg Message) {
 	for _, player := range p {
-		if err := player.Send(msg); err != nil {
-			return err
-		}
+		player.Send(msg)
 	}
-	return nil
 }

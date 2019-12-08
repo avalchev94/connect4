@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/avalchev94/tarantula/games"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -22,8 +23,31 @@ func NewGame(cols, rows int) *Game {
 		field:      NewField(cols, rows),
 		players:    []Color{},
 		currPlayer: RedColor,
-		state:      games.Running,
+		state:      games.Starting,
 	}
+}
+
+func (g *Game) Start() error {
+	switch g.state {
+	case games.Starting:
+		if len(g.players) < maxPlayers {
+			return games.PlayersNotEnough
+		}
+	case games.Running:
+		return errors.New("game is already running")
+	}
+
+	g.state = games.Running
+	return nil
+}
+
+func (g *Game) Pause() error {
+	if g.state != games.Running {
+		return errors.New("game is not running")
+	}
+
+	g.state = games.Paused
+	return nil
 }
 
 func (g *Game) Move(player games.PlayerID, move games.MoveData) error {
@@ -91,10 +115,13 @@ func (g *Game) CurrentPlayer() games.PlayerID {
 	return games.PlayerID(g.currPlayer)
 }
 
-func (g *Game) Name() string {
-	return "Connect4"
-}
-
 func (g *Game) Field() Field {
 	return g.field
+}
+
+func (g *Game) Settings() games.Settings {
+	return Settings{
+		Rows: len(g.field),
+		Cols: len(g.field[0]),
+	}
 }

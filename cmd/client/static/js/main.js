@@ -1,11 +1,30 @@
 var tarantula = null
+var hostname = document.location.hostname
 
 window.onload = function() {
-  var roomName = window.location.pathname.split('/').pop()
-  var playerUUID = uuidv4();
+  var name = document.URL.split('/').pop()
+  fetch(`http://${hostname}:8080/rooms/${name}/settings`, {
+    method: 'GET',
+    credentials: 'include'
+  })
+  .then((resp) => {
+    if (resp.ok) {
+      return resp.json()
+    } else {
+      throw resp.text()
+    }
+  })
+  .then((resp) => {
+    tarantula = new Tarantula(
+      new Connect4(resp.settings.cols, resp.settings.rows, resp.player),
+      new this.WebSocket(`ws://${hostname}:8080/rooms/${name}/connect`)
+    )
+  })
+  .catch((error) => {
+    error.then((message) => {
+      alert(message)
+    })
+  })
 
-  tarantula = new Tarantula(
-    new Connect4(7, 6),
-    new WebSocket(`ws://localhost:8080/join?name=${roomName}&uuid=${playerUUID}`)
-  )
+
 }
