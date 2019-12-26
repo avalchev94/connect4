@@ -12,6 +12,7 @@ const (
 	GameStarting MessageType = iota
 	GameEnded
 	PlayerMove
+	PlayerMoveExpired
 	PlayerJoined
 	PlayerLeft
 )
@@ -32,14 +33,10 @@ type payloadGameEnded struct {
 
 type payloadPlayerMove struct {
 	Player games.PlayerID `json:"player"`
-	Move   games.MoveData `json:"move"`
+	Move   moveData       `json:"move"`
 }
 
-type payloadPlayerJoined struct {
-	Player games.PlayerID `json:"player"`
-}
-
-type payloadPlayerLeft struct {
+type payloadPlayer struct {
 	Player games.PlayerID `json:"player"`
 }
 
@@ -67,12 +64,8 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 		var payload payloadPlayerMove
 		err = json.Unmarshal(msg["payload"], &payload)
 		m.Payload = payload
-	case PlayerJoined:
-		var payload payloadPlayerJoined
-		err = json.Unmarshal(msg["payload"], &payload)
-		m.Payload = payload
-	case PlayerLeft:
-		var payload payloadPlayerLeft
+	case PlayerMoveExpired, PlayerJoined, PlayerLeft:
+		var payload payloadPlayer
 		err = json.Unmarshal(msg["payload"], &payload)
 		m.Payload = payload
 	}

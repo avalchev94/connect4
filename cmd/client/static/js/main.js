@@ -16,7 +16,7 @@ window.onload = function() {
   })
   .then((resp) => {
     tarantula = new Tarantula(
-      new Connect4(resp.settings.cols, resp.settings.rows, resp.player),
+      new Connect4(resp.settings, resp.player),
       new this.WebSocket(`ws://${hostname}:8080/rooms/${name}/connect`)
     )
   })

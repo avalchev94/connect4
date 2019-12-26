@@ -70,7 +70,7 @@ body {
 .game .game-info .player.yellow {
   border-radius: 5px;
   padding: 5px 10px;
-  justify-content: flex-end
+  justify-content: flex-end;
 }
 
 .game .game-info .on-move {
@@ -99,6 +99,19 @@ body {
 
 .game .game-info .player.yellow .name {
   margin-right: 10px;
+}
+
+.game .game-info .timer {
+  width: 20%;
+  height: 50px;
+  text-align: center;
+}
+
+.game .game-info .timer .remaining {
+  position: relative;
+  top: 50%;
+  font-size: 16pt;
+  font-weight: bold;
 }
 
 .message {

@@ -9,20 +9,16 @@ import (
 	"github.com/avalchev94/tarantula/games"
 	"github.com/avalchev94/tarantula/games/connect4"
 	"github.com/avalchev94/tarantula/games/poker"
+	"nhooyr.io/websocket"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
 )
 
 var (
-	rooms    = tarantula.NewRooms()
-	upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
+	rooms     = tarantula.NewRooms()
+	wsOptions = websocket.AcceptOptions{
+		InsecureSkipVerify: true,
 	}
 )
 
@@ -58,7 +54,7 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	var game games.Game
 	switch body.Game {
 	case "connect4":
-		game = connect4.NewGame(7, 6)
+		game = connect4.NewGame(6, 7)
 	case "poker":
 		game = poker.NewGame("ip:port", body.Name)
 	}
@@ -69,7 +65,7 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Room '%s' was created.", body.Name)
+	log.Printf("[Room %q] was created.", body.Name)
 	w.WriteHeader(http.StatusCreated)
 
 	go room.Run()
@@ -123,9 +119,9 @@ func handleConnectRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := websocket.Accept(w, r, &wsOptions)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[Room %q] played %q failed to join: %v", name, cookie.UUID, err)
 		return
 	}
 

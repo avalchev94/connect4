@@ -46,22 +46,22 @@ func (c Cell) BotRight() Cell {
 type Field [][]Color
 
 func NewField(cols, rows int) Field {
-	field := make(Field, cols)
+	field := make(Field, rows)
 	for i := range field {
-		field[i] = make([]Color, rows)
+		field[i] = make([]Color, cols)
 	}
 
 	return field
 }
 
 func (f Field) InRange(c Cell) bool {
-	return (c.Col >= 0 && c.Col < len(f)) &&
-		(c.Row >= 0 && c.Row < len(f[0]))
+	return (c.Row >= 0 && c.Row < len(f)) &&
+		(c.Col >= 0 && c.Col < len(f[0]))
 }
 
 func (f Field) Equal(c1, c2 Cell) bool {
 	if f.InRange(c1) && f.InRange(c2) {
-		return f[c1.Col][c1.Row] == f[c2.Col][c2.Row]
+		return f[c1.Row][c1.Col] == f[c2.Row][c2.Col]
 	}
 
 	// out of range
@@ -69,10 +69,19 @@ func (f Field) Equal(c1, c2 Cell) bool {
 }
 
 func (f Field) Full() bool {
-	lastRow := len(f[0]) - 1
+	for _, cell := range f[0] {
+		if cell == NullColor {
+			return false
+		}
+	}
+	return true
+}
 
-	for _, r := range f {
-		if r[lastRow] == NullColor {
+func (f Field) Empty() bool {
+	lastRow := len(f) - 1
+
+	for _, cell := range f[lastRow] {
+		if cell != NullColor {
 			return false
 		}
 	}
@@ -84,12 +93,13 @@ func (f *Field) Update(col int, color Color) (Cell, error) {
 		return Cell{}, fmt.Errorf("col %d is out of range", col)
 	}
 
-	for row, c := range (*f)[col] {
-		if c == NullColor {
-			(*f)[col][row] = color
+	for row := len(*f) - 1; row >= 0; row-- {
+		if (*f)[row][col] == NullColor {
+			(*f)[row][col] = color
 			return Cell{col, row}, nil
 		}
 	}
+
 	return Cell{}, fmt.Errorf("col %d is full", col)
 }
 

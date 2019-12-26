@@ -18,7 +18,7 @@ func NewGame(host, room string) *Game {
 		host: host,
 		room: room,
 		client: http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: time.Second * 10,
 		},
 	}
 }
@@ -39,8 +39,16 @@ func (g *Game) State() games.GameState {
 	return 0
 }
 
+func (g *Game) StateUpdated() <-chan games.GameState {
+	return nil
+}
+
 func (g *Game) AddPlayer() (games.PlayerID, error) {
 	return 0, nil
+}
+
+func (g *Game) DeletePlayer(player games.PlayerID) error {
+	return nil
 }
 
 func (g *Game) CurrentPlayer() games.PlayerID {

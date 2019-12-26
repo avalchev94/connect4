@@ -13,9 +13,10 @@ const MESSAGE = {
 }
 
 class Connect4 {
-  constructor(cols, rows, playerID) {
-    this.cols = cols
-    this.rows = rows
+  constructor(settings, playerID) {
+    this.cols = settings.cols
+    this.rows = settings.rows
+
     this.originPlayer = playerID
     this.currentPlayer = null
     this.onaction = null
@@ -24,12 +25,11 @@ class Connect4 {
     this.playerBox = new PlayerBox()
     this.messageBox = new MessageBox()
 
-    // initially hide playersBox and messageBox
-    this.playerBox.hide()
-    this.messageBox.hide()
+    // render the game UI with current game progress
+    this.render(settings.gameProgress)
   }
 
-  render() {
+  render(gameProgress) {
     // draw the field
     var table = document.createElement('table')
     for (var r = 0; r < this.rows; r++) {
@@ -40,13 +40,36 @@ class Connect4 {
         var cell = row.insertCell()
         cell.onclick = this.onColumnClick.bind(this, c)
         
+        if (gameProgress.field[r][c] == COLOR.Red) {
+          cell.classList.add('red')
+        } else if (gameProgress.field[r][c] == COLOR.Yellow) {
+          cell.classList.add("yellow")
+        }
+        
         this.field[r][c] = cell
       }
     }
     document.getElementsByClassName('field')[0].appendChild(table)
 
-    // waiting for opponent
-    this.messageBox.show(MESSAGE.WaitingOpponent)
+    // update player and message boxes
+    switch (gameProgress.state) {
+    case State.Starting:
+      this.messageBox.show(MESSAGE.WaitingOpponent)
+      this.playerBox.hide()
+      break
+    case State.Running:
+      this.start(gameProgress.player)
+      break
+    case State.Paused:
+      this.messageBox.show(MESSAGE.WaitingOpponent)
+      this.playerBox.hide()
+      break
+    case State.EndWin:
+    case State.EndDraw:
+      this.start(gameProgress.player)
+      this.end(gameProgress.state, gameProgress.player)
+      break
+    }
   }
 
   start(player) {
@@ -148,11 +171,11 @@ class PlayerBox {
       [COLOR.Red, document.getElementsByClassName('player red')[0]],
       [COLOR.Yellow, document.getElementsByClassName('player yellow')[0]]
     ])
-
     this.playersNames = new Map([
       [COLOR.Red, document.getElementById('red-name')],
       [COLOR.Yellow, document.getElementById('yellow-name')]
     ])
+    this.timer = new Timer(30)
   }
 
   hide() {
@@ -177,5 +200,59 @@ class PlayerBox {
       this.players.get(COLOR.Red).classList.remove('on-move')
       this.players.get(COLOR.Yellow).classList.add('on-move')
     }
+    
+    this.timer.restart()
+  }
+}
+
+class Timer {
+  constructor(duration) {
+    this.timerBox = document.getElementsByClassName('timer')[0]
+    this.timerText = this.timerBox.getElementsByClassName('remaining')[0]
+    this.running = false
+    this.duration = duration
+    this.remaining = duration
+    this.intervalID = -1
+
+    this.setDuration(duration)
+  }
+
+  setDuration(duration) {
+    if (!this.running) {
+      this.duration = duration
+      this.remaining = duration
+      this.timerText.innerHTML = duration
+    }
+  }
+
+  start() {
+    if (this.running || this.remaining <= 0) {
+      return
+    }
+
+    this.running = true
+    this.intervalID = setInterval(()=>{
+      this.timerText.innerHTML = --this.remaining
+      if (this.remaining == 0) {
+        this.stop()
+      }
+    }, 1000)
+  }
+
+  stop() {
+    if (this.running || this.intervalID != -1) {
+      clearInterval(this.intervalID)
+      this.running = false
+      this.intervalID = -1
+    }
+  }
+
+  restart() {
+    if (this.running) {
+      this.stop()
+    }
+
+    this.setDuration(this.duration)
+    this.start()
   }
 }

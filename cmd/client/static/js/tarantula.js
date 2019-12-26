@@ -9,9 +9,10 @@ const State = {
 const MessageType = {
 	GameStarting: 0,
 	GameEnded: 1,
-	PlayerMove: 2,
-	PlayerJoined: 3,
-	PlayerLeft: 4
+  PlayerMove: 2,
+  PlayerMoveExpired: 3,
+	PlayerJoined: 4,
+	PlayerLeft: 5
 }
 
 // interface Game {
@@ -31,8 +32,6 @@ class Tarantula {
     this.socket.onerror = function(event) {
       console.log(event)
     };
-
-    this.game.render()
   }
 
   onMove(move) {

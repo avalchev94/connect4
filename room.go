@@ -1,12 +1,14 @@
 package tarantula
 
 import (
+	"context"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/avalchev94/tarantula/games"
-	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"nhooyr.io/websocket"
 )
 
 type Room struct {
@@ -77,7 +79,11 @@ func (r *Room) Connect(uuid string, conn *websocket.Conn) {
 }
 
 func (r *Room) Run() {
-	//moveTimer := time.NewTimer(time.Second)
+	var (
+		moveTimer     = time.NewTimer(time.Second)
+		currentPlayer = NewPlayer(0)
+	)
+	moveTimer.Stop()
 
 	for {
 		select {
@@ -91,20 +97,23 @@ func (r *Room) Run() {
 				log.Println(err)
 			}
 
-		default:
-			switch r.game.State() {
+		case state := <-r.game.StateUpdated():
+			switch state {
 			case games.Running:
-				if err := r.handleMove(); err != nil {
-					log.Println(err)
-				}
+				currentPlayer = r.findPlayer(r.game.CurrentPlayer())
+				moveTimer.Reset(30 * time.Second)
 			case games.EndDraw, games.EndWin:
-				if err := r.handleEnd(); err != nil {
-					log.Println(err)
-				}
-
-				// temp -> no restart for now
-				return
+				r.handleEnd()
 			}
+
+		case <-moveTimer.C:
+			r.handleTimeExpired(currentPlayer)
+
+		case msg := <-currentPlayer.read:
+			r.handleMove(msg, currentPlayer)
+
+			currentPlayer = r.findPlayer(r.game.CurrentPlayer())
+			moveTimer.Reset(30 * time.Second)
 		}
 	}
 }
@@ -116,23 +125,25 @@ func (r *Room) handleJoin(data playerTuple) error {
 
 	// update the socket of that player
 	player := r.players[data.uuid]
-	if player.socket != nil {
+	if player != nil && player.socket != nil {
 		return errors.New("the connection of this uuid is active")
 	}
 
 	// update player socket and start processing messages
-	player.socket = data.conn
+	player.SetConnection(data.conn)
+
+	log.Printf("[Room %q] player %q joined!", "name", data.uuid)
 
 	go func() {
-		if err := player.ProcessMessages(); err != nil {
-			log.Println(err)
+		if err := player.ProcessMessages(context.TODO()); err != nil {
+			log.Printf("[Room %q] player %q disconected: %v", "name", data.uuid, err)
 		}
 		r.leave <- data.uuid
 	}()
 
 	// check if there are players with nil sockets
 	for _, p := range r.players {
-		if p.socket == nil {
+		if p.Connection() == nil {
 			return nil
 		}
 	}
@@ -158,11 +169,11 @@ func (r *Room) handleJoin(data playerTuple) error {
 
 func (r *Room) handleLeave(uuid string) error {
 	player := r.players[uuid]
-	player.socket = nil
+	player.SetConnection(nil)
 
 	msg := Message{
 		Type: PlayerLeft,
-		Payload: payloadPlayerLeft{
+		Payload: payloadPlayer{
 			Player: player.id,
 		},
 	}
@@ -172,13 +183,7 @@ func (r *Room) handleLeave(uuid string) error {
 	return r.game.Pause()
 }
 
-func (r *Room) handleMove() error {
-	currPlayer := r.findPlayer(r.game.CurrentPlayer())
-	if currPlayer == nil {
-		return errors.Errorf("failed to find current player: %v", r.game.CurrentPlayer())
-	}
-
-	msg := currPlayer.Read()
+func (r *Room) handleMove(msg Message, player *Player) error {
 	movePayload, ok := msg.Payload.(payloadPlayerMove)
 	if !ok {
 		return errors.Errorf("failed to parse move payload: %v", msg)
@@ -190,7 +195,7 @@ func (r *Room) handleMove() error {
 	}
 
 	// send them message to the rest of the players
-	r.players.SendBut(msg, currPlayer)
+	r.players.SendBut(msg, player)
 
 	return nil
 }
@@ -206,4 +211,16 @@ func (r *Room) handleEnd() error {
 
 	r.players.SendAll(msg)
 	return nil
+}
+
+func (r *Room) handleTimeExpired(player *Player) error {
+	msg := Message{
+		Type: PlayerMoveExpired,
+		Payload: payloadPlayer{
+			Player: player.id,
+		},
+	}
+	r.players.SendBut(msg, player)
+
+	return r.game.Move(player.id, moveData{Expired: true})
 }
