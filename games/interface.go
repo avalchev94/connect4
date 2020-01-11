@@ -1,7 +1,5 @@
 package games
 
-import "errors"
-
 // Game abstracts turn(move)-based game.
 // Implement the following methods to use the game server.
 // - Move(MoveData): notifies game engine about player move.
@@ -16,8 +14,9 @@ type Game interface {
 	State() GameState
 	StateUpdated() <-chan GameState
 
-	AddPlayer() (PlayerID, error)
-	DeletePlayer(PlayerID) error
+	AddPlayer(connected bool) (PlayerID, error)
+	DelPlayer(PlayerID) error
+	SetPlayerStatus(player PlayerID, connected bool) error
 	CurrentPlayer() PlayerID
 
 	Settings() Settings
@@ -49,8 +48,4 @@ const (
 	Paused
 	EndDraw
 	EndWin
-)
-
-var (
-	PlayersNotEnough = errors.New("players are not enough to start the game")
 )

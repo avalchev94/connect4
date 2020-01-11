@@ -12,20 +12,30 @@ import (
 )
 
 type Room struct {
-	game    games.Game
-	mutex   *sync.Mutex
-	players Players
-	join    chan playerTuple
-	leave   chan string
+	game       games.Game
+	mutex      *sync.Mutex
+	players    Players
+	join       chan chanMessage
+	connect    chan chanMessage
+	disconnect chan chanMessage
+	leave      chan chanMessage
+}
+
+type chanMessage struct {
+	uuid    UUID
+	conn    *websocket.Conn
+	errChan chan<- error
 }
 
 func NewRoom(game games.Game) *Room {
 	return &Room{
-		game:    game,
-		mutex:   &sync.Mutex{},
-		players: Players{},
-		join:    make(chan playerTuple),
-		leave:   make(chan string),
+		game:       game,
+		mutex:      &sync.Mutex{},
+		players:    Players{},
+		join:       make(chan chanMessage),
+		connect:    make(chan chanMessage),
+		disconnect: make(chan chanMessage),
+		leave:      make(chan chanMessage),
 	}
 }
 
@@ -46,36 +56,33 @@ func (r *Room) PlayersCount() int {
 	return len(r.players)
 }
 
-func (r *Room) PlayerExist(uuid string, playerID games.PlayerID) bool {
-	player, ok := r.players[uuid]
-	if !ok {
-		return false
+func (r *Room) PlayerExist(uuid UUID) (games.PlayerID, bool) {
+	if player, ok := r.players[uuid]; ok {
+		return player.id, true
 	}
 
-	return player.id == playerID
+	return -1, false
 }
 
-func (r *Room) Join(uuid string) (games.PlayerID, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+func (r *Room) Join(uuid UUID) error {
+	errChan := make(chan error)
+	r.join <- chanMessage{uuid, nil, errChan}
 
-	playerID, err := r.game.AddPlayer()
-	if err != nil {
-		return -1, err
-	}
-
-	r.players[uuid] = NewPlayer(playerID)
-	// todo: check if player actually joined??
-	return playerID, nil
+	return <-errChan
 }
 
-type playerTuple struct {
-	uuid string
-	conn *websocket.Conn
+func (r *Room) Leave(uuid UUID) error {
+	errChan := make(chan error)
+	r.leave <- chanMessage{uuid, nil, errChan}
+
+	return <-errChan
 }
 
-func (r *Room) Connect(uuid string, conn *websocket.Conn) {
-	r.join <- playerTuple{uuid, conn}
+func (r *Room) Connect(uuid UUID, conn *websocket.Conn) error {
+	errChan := make(chan error)
+	r.connect <- chanMessage{uuid, conn, errChan}
+
+	return <-errChan
 }
 
 func (r *Room) Run() {
@@ -87,16 +94,22 @@ func (r *Room) Run() {
 
 	for {
 		select {
-		case player := <-r.join:
-			if err := r.handleJoin(player); err != nil {
-				log.Println(err)
+		case msg := <-r.join:
+			if err := r.handleJoin(msg.uuid); msg.errChan != nil {
+				msg.errChan <- err
 			}
-
-		case player := <-r.leave:
-			if err := r.handleLeave(player); err != nil {
-				log.Println(err)
+		case msg := <-r.connect:
+			if err := r.handleConnect(msg.uuid, msg.conn); msg.errChan != nil {
+				msg.errChan <- err
 			}
-
+		case msg := <-r.disconnect:
+			if err := r.handleDisconnect(msg.uuid); msg.errChan != nil {
+				msg.errChan <- err
+			}
+		case msg := <-r.leave:
+			if err := r.handleLeave(msg.uuid); msg.errChan != nil {
+				msg.errChan <- err
+			}
 		case state := <-r.game.StateUpdated():
 			switch state {
 			case games.Running:
@@ -118,58 +131,108 @@ func (r *Room) Run() {
 	}
 }
 
-func (r *Room) handleJoin(data playerTuple) error {
-	if r.game.State() == games.Running {
-		return errors.New("the game is running")
+func (r *Room) handleJoin(uuid UUID) error {
+	if _, ok := r.players[uuid]; ok {
+		return errors.Errorf("player with uuid %q already exist", uuid)
 	}
 
-	// update the socket of that player
-	player := r.players[data.uuid]
-	if player != nil && player.socket != nil {
-		return errors.New("the connection of this uuid is active")
-	}
-
-	// update player socket and start processing messages
-	player.SetConnection(data.conn)
-
-	log.Printf("[Room %q] player %q joined!", "name", data.uuid)
-
-	go func() {
-		if err := player.ProcessMessages(context.TODO()); err != nil {
-			log.Printf("[Room %q] player %q disconected: %v", "name", data.uuid, err)
-		}
-		r.leave <- data.uuid
-	}()
-
-	// check if there are players with nil sockets
-	for _, p := range r.players {
-		if p.Connection() == nil {
-			return nil
-		}
-	}
-
-	// try start the game
-	if err := r.game.Start(); err != nil {
-		if err == games.PlayersNotEnough {
-			return nil
-		}
+	playerID, err := r.game.AddPlayer(false)
+	if err != nil {
 		return err
 	}
 
-	// send game starting message
+	player := NewPlayer(playerID)
+	r.players[uuid] = player
+
 	msg := Message{
-		Type: GameStarting,
-		Payload: payloadGameStarting{
-			Staring: r.game.CurrentPlayer(),
+		Type: PlayerJoined,
+		Payload: payloadPlayer{
+			Player: player.id,
 		},
 	}
-	r.players.SendAll(msg)
+	r.players.SendBut(msg, player)
+
+	go func() {
+		if err := player.Disconnected(30 * time.Second); err != nil {
+			// log
+			r.leave <- chanMessage{uuid: uuid}
+		}
+	}()
+
 	return nil
 }
 
-func (r *Room) handleLeave(uuid string) error {
-	player := r.players[uuid]
-	player.SetConnection(nil)
+func (r *Room) handleConnect(uuid UUID, conn *websocket.Conn) error {
+	player, ok := r.players[uuid]
+	if ok {
+		return errors.Errorf("player with uuid %q does not exist", uuid)
+	} else if player.Connection() != nil {
+		return errors.Errorf("player with uuid %q already has active connection", uuid)
+	}
+
+	if err := r.game.SetPlayerStatus(player.id, true); err != nil {
+		return err
+	}
+	player.Connected(conn)
+
+	msg := Message{
+		Type: PlayerConnected,
+		Payload: payloadPlayer{
+			Player: player.id,
+		},
+	}
+	r.players.SendBut(msg, player)
+
+	go func() {
+		if err := player.ProcessMessages(context.TODO()); err != nil {
+			log.Printf("[Room %q] player %q disconected: %v", "name", uuid, err)
+		}
+		r.disconnect <- chanMessage{uuid: uuid}
+	}()
+
+	return nil
+}
+
+func (r *Room) handleDisconnect(uuid UUID) error {
+	player, ok := r.players[uuid]
+	if !ok {
+		return errors.Errorf("player with uuid %q does not exist", uuid)
+	} else if player.Connection() == nil {
+		return errors.Errorf("player with uuid %q is already disconnected", uuid)
+	}
+
+	if err := r.game.SetPlayerStatus(player.id, false); err != nil {
+		return err
+	}
+
+	msg := Message{
+		Type: PlayerDisconnected,
+		Payload: payloadPlayer{
+			Player: player.id,
+		},
+	}
+	r.players.SendBut(msg, player)
+
+	go func() {
+		if err := player.Disconnected(30 * time.Second); err != nil {
+			// log
+			r.leave <- chanMessage{uuid: uuid}
+		}
+	}()
+
+	return nil
+}
+
+func (r *Room) handleLeave(uuid UUID) error {
+	player, ok := r.players[uuid]
+	if !ok {
+		return errors.Errorf("player with uuid %q does not exist", uuid)
+	}
+
+	if err := r.game.DelPlayer(player.id); err != nil {
+		return nil
+	}
+	delete(r.players, uuid)
 
 	msg := Message{
 		Type: PlayerLeft,
@@ -177,10 +240,9 @@ func (r *Room) handleLeave(uuid string) error {
 			Player: player.id,
 		},
 	}
-	r.players.SendBut(msg, player)
+	r.players.SendAll(msg)
 
-	// pause the game
-	return r.game.Pause()
+	return nil
 }
 
 func (r *Room) handleMove(msg Message, player *Player) error {

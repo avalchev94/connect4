@@ -13,7 +13,7 @@ const (
 
 type Game struct {
 	field       Field
-	players     []Color
+	players     map[Color]bool
 	currPlayer  Color
 	state       games.GameState
 	stateUpdate chan games.GameState
@@ -22,7 +22,7 @@ type Game struct {
 func NewGame(cols, rows int) *Game {
 	return &Game{
 		field:       NewField(cols, rows),
-		players:     []Color{},
+		players:     map[Color]bool{},
 		currPlayer:  RedColor,
 		state:       games.Starting,
 		stateUpdate: make(chan games.GameState, 1),
@@ -38,24 +38,37 @@ func (g *Game) setState(state games.GameState) {
 
 func (g *Game) Start() error {
 	switch g.state {
-	case games.Starting:
-		if len(g.players) < maxPlayers {
-			return games.PlayersNotEnough
-		}
 	case games.Running:
 		return errors.New("game is already running")
+	case games.Starting, games.Paused:
+		if len(g.players) < maxPlayers {
+			return errors.Errorf("Players are %d, but needed %d", len(g.players), maxPlayers)
+		}
+
+		for player, connected := range g.players {
+			if !connected {
+				return errors.Errorf("Player %q is not connected", player)
+			}
+		}
+
+		g.setState(games.Running)
+	default:
+		return errors.New("not handeled for end game")
 	}
 
-	g.setState(games.Running)
 	return nil
 }
 
 func (g *Game) Pause() error {
-	if g.state != games.Running {
-		return errors.New("game is not running")
+	switch g.state {
+	case games.Paused:
+		return errors.New("game is already paused")
+	case games.Running:
+		g.setState(games.Paused)
+	default:
+		return errors.New("not handled pause state")
 	}
 
-	g.setState(games.Paused)
 	return nil
 }
 
@@ -117,21 +130,48 @@ func (g *Game) StateUpdated() <-chan games.GameState {
 	return g.stateUpdate
 }
 
-func (g *Game) AddPlayer() (games.PlayerID, error) {
+func (g *Game) AddPlayer(connected bool) (games.PlayerID, error) {
 	if len(g.players) == maxPlayers {
 		return -1, fmt.Errorf("game has reached maximum players")
 	}
 
-	if len(g.players) == 0 {
-		g.players = append(g.players, RedColor)
-		return games.PlayerID(RedColor), nil
+	// try start the game after player is added
+	defer g.Start()
+
+	player := RedColor
+	if _, ok := g.players[RedColor]; ok {
+		player = YellowColor
 	}
 
-	g.players = append(g.players, YellowColor)
-	return games.PlayerID(YellowColor), nil
+	g.players[player] = connected
+	return games.PlayerID(player), nil
 }
 
-func (g *Game) DeletePlayer(player games.PlayerID) error {
+func (g *Game) DelPlayer(player games.PlayerID) error {
+	color := Color(player)
+	if _, ok := g.players[color]; !ok {
+		return errors.Errorf("player %q doesn't exist", color)
+	}
+
+	delete(g.players, color)
+	g.setState(games.Starting)
+
+	return nil
+}
+
+func (g *Game) SetPlayerStatus(player games.PlayerID, connected bool) error {
+	color := Color(player)
+	if _, ok := g.players[color]; !ok {
+		return errors.Errorf("player %q doesn't exist", color)
+	}
+
+	g.players[color] = connected
+	if connected {
+		g.Start()
+	} else {
+		g.Pause()
+	}
+
 	return nil
 }
 

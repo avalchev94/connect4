@@ -12,6 +12,17 @@ const (
 	YellowColor
 )
 
+func (c Color) String() string {
+	switch c {
+	case RedColor:
+		return "red"
+	case YellowColor:
+		return "yellow"
+	default:
+		return "undefined"
+	}
+}
+
 func (c Color) Next() Color {
 	switch c {
 	case RedColor:

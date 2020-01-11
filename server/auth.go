@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/securecookie"
 
+	"github.com/avalchev94/tarantula"
 	"github.com/avalchev94/tarantula/games"
 )
 
@@ -29,7 +30,7 @@ func enableCORS(next http.Handler) http.Handler {
 }
 
 type authCookie struct {
-	UUID   string         `json:"uuid"`
+	UUID   tarantula.UUID `json:"uuid"`
 	Player games.PlayerID `json:"player_id"`
 }
 

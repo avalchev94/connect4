@@ -8,10 +8,8 @@ import (
 	"github.com/avalchev94/tarantula"
 	"github.com/avalchev94/tarantula/games"
 	"github.com/avalchev94/tarantula/games/connect4"
-	"github.com/avalchev94/tarantula/games/poker"
 	"nhooyr.io/websocket"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -56,7 +54,7 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	case "connect4":
 		game = connect4.NewGame(6, 7)
 	case "poker":
-		game = poker.NewGame("ip:port", body.Name)
+		//game = poker.NewGame("ip:port", body.Name)
 	}
 
 	room := tarantula.NewRoom(game)
@@ -79,19 +77,19 @@ func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uuid, err := uuid.NewUUID()
+	uuid, err := tarantula.NewUUID()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	playerID, err := room.Join(uuid.String())
-	if err != nil {
+	if err := room.Join(uuid); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	cookie := authCookie{uuid.String(), playerID}
+	playerID, _ := room.PlayerExist(uuid)
+	cookie := authCookie{uuid, playerID}
 	if err := encodeCookie(w, name, cookie); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -114,7 +112,7 @@ func handleConnectRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !room.PlayerExist(cookie.UUID, cookie.Player) {
+	if _, ok := room.PlayerExist(cookie.UUID); !ok {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
@@ -142,7 +140,7 @@ func handleGameSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !room.PlayerExist(cookie.UUID, cookie.Player) {
+	if playerID, ok := room.PlayerExist(cookie.UUID); !ok || playerID != cookie.Player {
 		http.Error(w, "player does not exist", http.StatusBadRequest)
 		return
 	}

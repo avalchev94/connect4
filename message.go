@@ -14,6 +14,8 @@ const (
 	PlayerMove
 	PlayerMoveExpired
 	PlayerJoined
+	PlayerConnected
+	PlayerDisconnected
 	PlayerLeft
 )
 

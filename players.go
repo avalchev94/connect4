@@ -2,16 +2,19 @@ package tarantula
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/avalchev94/tarantula/games"
 	"github.com/pkg/errors"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
-	"sync"
 )
 
 type Player struct {
 	id     games.PlayerID
 	socket *websocket.Conn
+	mutex  *sync.Mutex
 	read   chan Message
 	send   chan Message
 }
@@ -20,6 +23,7 @@ func NewPlayer(id games.PlayerID) *Player {
 	return &Player{
 		id:     id,
 		socket: nil,
+		mutex:  &sync.Mutex{},
 		read:   make(chan Message, 100),
 		send:   make(chan Message, 100),
 	}
@@ -33,12 +37,42 @@ func (p *Player) Read() Message {
 	return <-p.read
 }
 
-func (p *Player) SetConnection(conn *websocket.Conn) {
-	p.socket = conn
+func (p *Player) Disconnected(timeout time.Duration) error {
+	p.setConnection(nil)
+
+	if timeout <= 0 {
+		return nil
+	}
+
+	timer := time.NewTimer(timeout)
+	for {
+		select {
+		case <-timer.C:
+			if p.socket == nil {
+				return errors.New("wait for player connection timeouted")
+			}
+			return nil
+		default:
+			if p.socket != nil {
+				return nil
+			}
+		}
+	}
+}
+
+func (p *Player) Connected(conn *websocket.Conn) {
+	p.setConnection(conn)
 }
 
 func (p *Player) Connection() *websocket.Conn {
 	return p.socket
+}
+
+func (p *Player) setConnection(conn *websocket.Conn) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	p.socket = conn
 }
 
 func (p *Player) ProcessMessages(parentCtx context.Context) error {
@@ -93,7 +127,7 @@ func (p *Player) ProcessMessages(parentCtx context.Context) error {
 	return socketErr
 }
 
-type Players map[string]*Player
+type Players map[UUID]*Player
 
 func (p Players) SendBut(msg Message, sender *Player) {
 	for _, player := range p {
@@ -107,16 +141,8 @@ func (p Players) SendBut(msg Message, sender *Player) {
 
 func (p Players) SendAll(msg Message) {
 	for _, player := range p {
-		player.Send(msg)
-	}
-}
-
-func (p Players) Delete(delPlayer *Player) error {
-	for uuid, player := range p {
-		if delPlayer.id == player.id {
-			delete(p, uuid)
-			return nil
+		if player.Connection() != nil {
+			player.Send(msg)
 		}
 	}
-	return errors.Errorf("Couldn't find player with id: %v", delPlayer.id)
 }
