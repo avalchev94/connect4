@@ -123,7 +123,9 @@ func handleConnectRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room.Connect(cookie.UUID, conn)
+	if err := room.Connect(cookie.UUID, conn); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 }
 
 func handleGameSettings(w http.ResponseWriter, r *http.Request) {

@@ -39,13 +39,13 @@ type Settings interface {
 type PlayerID int
 
 // GameState - basic game state,
-type GameState int8
+type GameState string
 
 // Self - descriptive
 const (
-	Starting GameState = iota
-	Running
-	Paused
-	EndDraw
-	EndWin
+	Starting = GameState("starting")
+	Running  = GameState("running")
+	Paused   = GameState("paused")
+	EndDraw  = GameState("end_draw")
+	EndWin   = GameState("end_win")
 )

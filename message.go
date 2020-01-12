@@ -6,17 +6,18 @@ import (
 	"github.com/avalchev94/tarantula/games"
 )
 
-type MessageType int8
+type MessageType string
 
 const (
-	GameStarting MessageType = iota
-	GameEnded
-	PlayerMove
-	PlayerMoveExpired
-	PlayerJoined
-	PlayerConnected
-	PlayerDisconnected
-	PlayerLeft
+	GameStarting       = MessageType("game_starting")
+	GamePaused         = MessageType("game_paused")
+	GameEnded          = MessageType("game_ended")
+	PlayerMove         = MessageType("player_move")
+	PlayerMoveExpired  = MessageType("player_move_expired")
+	PlayerJoined       = MessageType("player_joined")
+	PlayerConnected    = MessageType("player_connected")
+	PlayerDisconnected = MessageType("player_disconnected")
+	PlayerLeft         = MessageType("player_left")
 )
 
 type Message struct {

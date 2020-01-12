@@ -135,15 +135,16 @@ func (g *Game) AddPlayer(connected bool) (games.PlayerID, error) {
 		return -1, fmt.Errorf("game has reached maximum players")
 	}
 
-	// try start the game after player is added
-	defer g.Start()
-
 	player := RedColor
 	if _, ok := g.players[RedColor]; ok {
 		player = YellowColor
 	}
 
 	g.players[player] = connected
+	if connected {
+		g.Start()
+	}
+
 	return games.PlayerID(player), nil
 }
 

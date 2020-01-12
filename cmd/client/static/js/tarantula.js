@@ -1,18 +1,20 @@
 const State = {
-  Starting: 0,
-  Running: 1,
-  Paused: 2,
-  EndDraw: 3,
-  EndWin: 4
+  Starting: "starting",
+  Running: "running",
+  Paused: "paused",
+  EndDraw: "end_draw",
+  EndWin: "end_win"
 }
 
 const MessageType = {
-	GameStarting: 0,
-	GameEnded: 1,
-  PlayerMove: 2,
-  PlayerMoveExpired: 3,
-	PlayerJoined: 4,
-	PlayerLeft: 5
+	GameStarting: "game_starting",
+	GameEnded: "game_ended",
+  PlayerMove: "player_move",
+  PlayerMoveExpired: "player_move_expired",
+	PlayerJoined: "player_joined",
+  PlayerLeft: "player_left",
+  PlayerConnected: "player_connected",
+  PlayerDisconnected: "player_disconnected"
 }
 
 // interface Game {

@@ -39,13 +39,13 @@ func NewRoom(game games.Game) *Room {
 	}
 }
 
-func (r *Room) findPlayer(playerID games.PlayerID) *Player {
-	for _, player := range r.players {
+func (r *Room) findPlayer(playerID games.PlayerID) (UUID, *Player) {
+	for uuid, player := range r.players {
 		if player.id == playerID {
-			return player
+			return uuid, player
 		}
 	}
-	return nil
+	return UUID(""), nil
 }
 
 func (r *Room) GameSettings() games.Settings {
@@ -113,8 +113,19 @@ func (r *Room) Run() {
 		case state := <-r.game.StateUpdated():
 			switch state {
 			case games.Running:
-				currentPlayer = r.findPlayer(r.game.CurrentPlayer())
+				r.players.SendAll(Message{
+					Type: GameStarting,
+					Payload: payloadGameStarting{
+						Staring: r.game.CurrentPlayer(),
+					},
+				})
+
+				_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
 				moveTimer.Reset(30 * time.Second)
+			case games.Paused:
+				r.players.SendAll(Message{
+					Type: GamePaused,
+				})
 			case games.EndDraw, games.EndWin:
 				r.handleEnd()
 			}
@@ -125,7 +136,7 @@ func (r *Room) Run() {
 		case msg := <-currentPlayer.read:
 			r.handleMove(msg, currentPlayer)
 
-			currentPlayer = r.findPlayer(r.game.CurrentPlayer())
+			_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
 			moveTimer.Reset(30 * time.Second)
 		}
 	}
@@ -164,7 +175,7 @@ func (r *Room) handleJoin(uuid UUID) error {
 
 func (r *Room) handleConnect(uuid UUID, conn *websocket.Conn) error {
 	player, ok := r.players[uuid]
-	if ok {
+	if !ok {
 		return errors.Errorf("player with uuid %q does not exist", uuid)
 	} else if player.Connection() != nil {
 		return errors.Errorf("player with uuid %q already has active connection", uuid)
