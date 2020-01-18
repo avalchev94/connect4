@@ -8,7 +8,8 @@ const State = {
 
 const MessageType = {
 	GameStarting: "game_starting",
-	GameEnded: "game_ended",
+  GameEnded: "game_ended",
+  GamePaused: "game_paused",
   PlayerMove: "player_move",
   PlayerMoveExpired: "player_move_expired",
 	PlayerJoined: "player_joined",
@@ -20,8 +21,13 @@ const MessageType = {
 // interface Game {
 //    render() // render the UI
 //    start(player) // game starts, first is given player
+//    pause() // game pauses
 //    move(player, move) // player has made move
+//    moveExpired(player, move) // player move time has expired
 //    end(state, player) // game ended with state
+//    addPlayer(player) // new player added, connection status false by default
+//    delPlayer(player) // player left
+//    setPlayerStatus(player, connected) // set player current connection status
 // }
 
 class Tarantula {
@@ -59,9 +65,23 @@ class Tarantula {
     case MessageType.GameEnded:
       this.game.end(msg.payload.state, msg.payload.winner)
       break
+    case MessageType.GamePaused:
+      this.game.pause()
     case MessageType.PlayerMove:
       this.game.move(msg.payload.player, msg.payload.move)
       break
+    case MessageType.PlayerMoveExpired:
+      this.game.moveExpired(msg.payload.player)
+    case MessageType.PlayerJoined:
+      this.game.addPlayer(msg.payload.player)
+      break
+    case MessageType.PlayerLeft:
+      this.game.delPlayer(msg.payload.player)
+      break
+    case MessageType.PlayerConnected:
+      this.game.setPlayerStatus(msg.payload.player, true)
+    case MessageType.PlayerDisconnected:
+      this.game.setPlayerStatus(msg.payload.player, false)
     }
   }
 }

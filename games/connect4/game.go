@@ -132,7 +132,7 @@ func (g *Game) StateUpdated() <-chan games.GameState {
 
 func (g *Game) AddPlayer(connected bool) (games.PlayerID, error) {
 	if len(g.players) == maxPlayers {
-		return -1, fmt.Errorf("game has reached maximum players")
+		return "", fmt.Errorf("game has reached maximum players")
 	}
 
 	player := RedColor

@@ -36,7 +36,7 @@ type Settings interface {
 }
 
 // PlayerID - the connection between game's logic and tarantula's logic.
-type PlayerID int
+type PlayerID string
 
 // GameState - basic game state,
 type GameState string

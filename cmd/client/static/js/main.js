@@ -21,9 +21,7 @@ window.onload = function() {
     )
   })
   .catch((error) => {
-    error.then((message) => {
-      alert(message)
-    })
+    this.alert(error)
   })
 
 

@@ -61,7 +61,7 @@ func (r *Room) PlayerExist(uuid UUID) (games.PlayerID, bool) {
 		return player.id, true
 	}
 
-	return -1, false
+	return "", false
 }
 
 func (r *Room) Join(uuid UUID) error {
@@ -88,7 +88,7 @@ func (r *Room) Connect(uuid UUID, conn *websocket.Conn) error {
 func (r *Room) Run() {
 	var (
 		moveTimer     = time.NewTimer(time.Second)
-		currentPlayer = NewPlayer(0)
+		currentPlayer = NewPlayer("")
 	)
 	moveTimer.Stop()
 

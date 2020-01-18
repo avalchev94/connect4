@@ -1,21 +1,21 @@
-const COLOR = {
-  Null: 0,
-  Red: 1,
-  Yellow: 2
+const Color = {
+  Null: "",
+  Red: "red",
+  Yellow: "yellow"
 }
 
-const MESSAGE = {
-  WaitingOpponent: 0,
-  GameWon: 1,
-  GameLost: 2,
-  GameDraw: 3,
-  ConnectionLost: 4
+const Message = {
+  WaitingOpponent: "waiting_oponent",
+  GameWon: "game_won",
+  GameLost: "game_lost",
+  GameDraw: "game_draw"
 }
 
 class Connect4 {
   constructor(settings, playerID) {
     this.cols = settings.cols
     this.rows = settings.rows
+    this.state = State.Starting
 
     this.originPlayer = playerID
     this.currentPlayer = null
@@ -39,11 +39,9 @@ class Connect4 {
       for (var c = 0; c < this.cols; c++) {
         var cell = row.insertCell()
         cell.onclick = this.onColumnClick.bind(this, c)
-        
-        if (gameProgress.field[r][c] == COLOR.Red) {
-          cell.classList.add('red')
-        } else if (gameProgress.field[r][c] == COLOR.Yellow) {
-          cell.classList.add("yellow")
+
+        if (gameProgress.field[r][c] != Color.Null) {
+          cell.classList.add(gameProgress.field[r][c])
         }
         
         this.field[r][c] = cell
@@ -54,14 +52,14 @@ class Connect4 {
     // update player and message boxes
     switch (gameProgress.state) {
     case State.Starting:
-      this.messageBox.show(MESSAGE.WaitingOpponent)
+      this.messageBox.show(Message.WaitingOpponent)
       this.playerBox.hide()
       break
     case State.Running:
       this.start(gameProgress.player)
       break
     case State.Paused:
-      this.messageBox.show(MESSAGE.WaitingOpponent)
+      this.messageBox.show(Message.WaitingOpponent)
       this.playerBox.hide()
       break
     case State.EndWin:
@@ -73,12 +71,18 @@ class Connect4 {
   }
 
   start(player) {
+    this.state = State.Running
     this.setCurrentPlayer(player)
     this.playerBox.setPlayerNames(this.originPlayer)
 
     // show playerBox and hide messages
     this.playerBox.show()
     this.messageBox.hide()
+  }
+
+  pause() {
+    this.state = State.Paused
+    this.playerBox.pause()
   }
 
   move(player, move) {
@@ -93,29 +97,45 @@ class Connect4 {
     }
 
     // change field class name to colorize the table cell
-    var cell = this.field[move.row][move.col].classList
-    if (player == COLOR.Red) {
-      cell.add('red')
-      this.setCurrentPlayer(COLOR.Yellow)
+    this.field[move.row][move.col].classList.add(player)
+    if (player == Color.Red) {
+      this.setCurrentPlayer(Color.Yellow)
     } else {
-      cell.add('yellow')
-      this.setCurrentPlayer(COLOR.Red)
+      this.setCurrentPlayer(Color.Red)
     }
+  }
+
+  moveExpired(player) {
   }
 
   end(state, winner) {
     switch (state) {
     case State.EndWin:
       if (winner == this.originPlayer) {
-        this.messageBox.show(MESSAGE.GameWon)
+        this.messageBox.show(Message.GameWon)
       } else {
-        this.messageBox.show(MESSAGE.GameLost)
+        this.messageBox.show(Message.GameLost)
       }
       break
     case State.EndDraw:
-      this.messageBox.show(MESSAGE.GameDraw)
+      this.messageBox.show(Message.GameDraw)
       break
     }
+  }
+
+  addPlayer(player) {
+    // not implemented
+  }
+
+  delPlayer(player) {
+  }
+
+  setPlayerStatus(player, connected) {
+    if (player == this.originPlayer) {
+      throw Error("can't change connection status of origin player")
+    }
+
+    this.playerBox.setPlayerConnected(player, connected)
   }
 
   setCurrentPlayer(player) {
@@ -139,18 +159,17 @@ class Connect4 {
 
 class MessageBox {
   constructor() {
-    this.messageBox = document.getElementsByClassName('content message')[0]
+    this.box = document.getElementsByClassName('content message')[0]
     this.messages = new Map([
-      [MESSAGE.WaitingOpponent, document.getElementsByClassName('waiting-opponent')[0]],
-      [MESSAGE.GameWon, document.getElementsByClassName('end win')[0]],
-      [MESSAGE.GameLost, document.getElementsByClassName('end loss')[0]],
-      [MESSAGE.GameDraw, document.getElementsByClassName('end draw')[0]],
-      [MESSAGE.ConnectionLost, document.getElementsByClassName('disconnected')[0]]
+      [Message.WaitingOpponent, document.getElementsByClassName('waiting-opponent')[0]],
+      [Message.GameWon, document.getElementsByClassName('end win')[0]],
+      [Message.GameLost, document.getElementsByClassName('end loss')[0]],
+      [Message.GameDraw, document.getElementsByClassName('end draw')[0]],
     ])
   }
 
   hide() {
-    this.messageBox.setAttribute("hidden", "")
+    this.box.setAttribute("hidden", "")
     this.messages.forEach(function(value){
       value.setAttribute("hidden", "")
     })
@@ -159,49 +178,82 @@ class MessageBox {
   show(msg) {
     this.hide()
 
-    this.messageBox.removeAttribute("hidden")
+    this.box.removeAttribute("hidden")
     this.messages.get(msg).removeAttribute("hidden")
   }
 }
 
 class PlayerBox {
   constructor() {
-    this.playersBox = document.getElementsByClassName('game-info')[0]
+    this.box = document.getElementsByClassName('game-info')[0]
+    this.pauseIcon = document.getElementsByClassName('pause-icon')[0]
     this.players = new Map([
-      [COLOR.Red, document.getElementsByClassName('player red')[0]],
-      [COLOR.Yellow, document.getElementsByClassName('player yellow')[0]]
-    ])
-    this.playersNames = new Map([
-      [COLOR.Red, document.getElementById('red-name')],
-      [COLOR.Yellow, document.getElementById('yellow-name')]
+      [Color.Red, new Player(Color.Red)],
+      [Color.Yellow, new Player(Color.Yellow)],
     ])
     this.timer = new Timer(30)
   }
 
   hide() {
-    this.playersBox.style.display = "none"
+    this.box.style.display = "none"
   }
 
   show() {
-    this.playersBox.style.display = "flex"
+    this.box.style.display = "flex"
+  }
+
+  togglePauseIcon(state) {
+    this.pauseIcon.style.visibility = state ? "visible" : "hidden"
+  }
+
+  pause() {
+    this.togglePauseIcon(true)
+    this.timer.stop()
+  }
+
+  setPlayerConnected(player, connected) {
+    //this.players[player].setConnected(connected)
   }
 
   setPlayerNames(player) {
-    this.playersNames.forEach(function(value, key){
-      value.innerHTML = key == player ? "You" : "Opponent"
+    this.players.forEach(function(value, key){
+      if (player == key) {
+        value.setName("You")
+      } else {
+        value.setName("Opponent")
+      }
     })
   }
 
   setCurrentPlayer(player) {
-    if (player == COLOR.Red) {
-      this.players.get(COLOR.Red).classList.add('on-move')
-      this.players.get(COLOR.Yellow).classList.remove('on-move')
-    } else {
-      this.players.get(COLOR.Red).classList.remove('on-move')
-      this.players.get(COLOR.Yellow).classList.add('on-move')
-    }
+    this.players.get(Color.Red).setCurrent(player == Color.Red)
+    this.players.get(Color.Yellow).setCurrent(player == Color.Yellow)
     
     this.timer.restart()
+  }
+}
+
+class Player {
+  constructor(color) {
+    this.color = color
+    this.player = document.getElementsByClassName(`player ${color}`)[0]
+    this.name = document.getElementById(`${color}-name`)
+  }
+
+  setName(name) {
+    this.name.innerHTML = name
+  }
+
+  setConnected(state) {
+    console.log(this.color, ' connection state:', state)
+  }
+
+  setCurrent(state) {
+    if (state) {
+      this.player.classList.add('on-move')
+    } else {
+      this.player.classList.remove('on-move')
+    }
   }
 }
 
