@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/avalchev94/tarantula/games"
+	"github.com/avalchev94/tarantula/pkg/timerx"
 	"github.com/pkg/errors"
 	"nhooyr.io/websocket"
 )
@@ -87,10 +88,10 @@ func (r *Room) Connect(uuid UUID, conn *websocket.Conn) error {
 
 func (r *Room) Run() {
 	var (
-		moveTimer     = time.NewTimer(time.Second)
+		moveTimer     = timerx.NewTimer(30 * time.Second)
 		currentPlayer = NewPlayer("")
 	)
-	moveTimer.Stop()
+	moveTimer.Pause()
 
 	for {
 		select {
@@ -121,12 +122,14 @@ func (r *Room) Run() {
 				})
 
 				_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
-				moveTimer.Reset(30 * time.Second)
+				moveTimer.Start()
 			case games.Paused:
 				r.players.SendAll(Message{
 					Type: GamePaused,
 				})
+				moveTimer.Pause()
 			case games.EndDraw, games.EndWin:
+				moveTimer.Stop()
 				r.handleEnd()
 			}
 
