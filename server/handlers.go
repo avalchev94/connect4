@@ -149,7 +149,7 @@ func handleGameSettings(w http.ResponseWriter, r *http.Request) {
 
 	response := struct {
 		Player   games.PlayerID `json:"player"`
-		Settings interface{}    `json:"settings"`
+		Settings games.Settings `json:"settings"`
 	}{cookie.Player, room.GameSettings()}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

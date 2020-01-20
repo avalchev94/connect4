@@ -51,6 +51,22 @@ func (t *Timer) Reset(d time.Duration) bool {
 	return true
 }
 
+func (t *Timer) Remaining() time.Duration {
+	var remaining time.Duration
+	switch t.state {
+	case running:
+		remaining = t.duration - time.Now().Sub(t.started)
+	case paused:
+		remaining = t.duration
+	}
+
+	if remaining <= 0 {
+		return 0
+	}
+
+	return remaining
+}
+
 func (t *Timer) Pause() bool {
 	if t.state != running {
 		return false

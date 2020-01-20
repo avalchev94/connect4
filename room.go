@@ -40,15 +40,6 @@ func NewRoom(game games.Game) *Room {
 	}
 }
 
-func (r *Room) findPlayer(playerID games.PlayerID) (UUID, *Player) {
-	for uuid, player := range r.players {
-		if player.id == playerID {
-			return uuid, player
-		}
-	}
-	return UUID(""), nil
-}
-
 func (r *Room) GameSettings() games.Settings {
 	return r.game.Settings()
 }
@@ -117,7 +108,8 @@ func (r *Room) Run() {
 				r.players.SendAll(Message{
 					Type: GameStarting,
 					Payload: payloadGameStarting{
-						Staring: r.game.CurrentPlayer(),
+						Staring:       r.game.CurrentPlayer(),
+						MoveRemaining: int(moveTimer.Remaining().Seconds()),
 					},
 				})
 
@@ -129,14 +121,14 @@ func (r *Room) Run() {
 				})
 				moveTimer.Pause()
 			case games.EndDraw, games.EndWin:
-				moveTimer.Stop()
 				r.handleEnd()
+				moveTimer.Stop()
 			}
 
 		case <-moveTimer.C:
 			r.handleTimeExpired(currentPlayer)
 
-		case msg := <-currentPlayer.read:
+		case msg := <-currentPlayer.Read():
 			r.handleMove(msg, currentPlayer)
 
 			_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
@@ -299,4 +291,13 @@ func (r *Room) handleTimeExpired(player *Player) error {
 	r.players.SendBut(msg, player)
 
 	return r.game.Move(player.id, moveData{Expired: true})
+}
+
+func (r *Room) findPlayer(playerID games.PlayerID) (UUID, *Player) {
+	for uuid, player := range r.players {
+		if player.id == playerID {
+			return uuid, player
+		}
+	}
+	return UUID(""), nil
 }

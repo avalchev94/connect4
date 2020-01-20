@@ -33,8 +33,8 @@ func (p *Player) Send(msg Message) {
 	p.send <- msg
 }
 
-func (p *Player) Read() Message {
-	return <-p.read
+func (p *Player) Read() <-chan Message {
+	return p.read
 }
 
 func (p *Player) Disconnected(timeout time.Duration) error {

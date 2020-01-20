@@ -26,7 +26,8 @@ type Message struct {
 }
 
 type payloadGameStarting struct {
-	Staring games.PlayerID `json:"starting"`
+	Staring       games.PlayerID `json:"starting"`
+	MoveRemaining int            `json:"moveRemaining"`
 }
 
 type payloadGameEnded struct {

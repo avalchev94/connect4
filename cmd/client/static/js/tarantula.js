@@ -60,7 +60,7 @@ class Tarantula {
 
     switch (msg.type) {
     case MessageType.GameStarting:
-      this.game.start(msg.payload.starting)
+      this.game.start(msg.payload.starting, msg.payload.moveRemaining)
       break
     case MessageType.GameEnded:
       this.game.end(msg.payload.state, msg.payload.winner)

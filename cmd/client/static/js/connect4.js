@@ -15,7 +15,6 @@ class Connect4 {
   constructor(settings, playerID) {
     this.cols = settings.cols
     this.rows = settings.rows
-    this.state = State.Starting
 
     this.originPlayer = playerID
     this.currentPlayer = null
@@ -70,18 +69,11 @@ class Connect4 {
     }
   }
 
-  start(player) {
-    this.state = State.Running
-    this.setCurrentPlayer(player)
-    this.playerBox.setPlayerNames(this.originPlayer)
-
-    // show playerBox and hide messages
-    this.playerBox.show()
-    this.messageBox.hide()
+  start(player, moveRemaining) {
+    this.setCurrentPlayer(player, moveRemaining)
   }
 
   pause() {
-    this.state = State.Paused
     this.playerBox.pause()
   }
 
@@ -99,9 +91,9 @@ class Connect4 {
     // change field class name to colorize the table cell
     this.field[move.row][move.col].classList.add(player)
     if (player == Color.Red) {
-      this.setCurrentPlayer(Color.Yellow)
+      this.setCurrentPlayer(Color.Yellow, 30)
     } else {
-      this.setCurrentPlayer(Color.Red)
+      this.setCurrentPlayer(Color.Red, 30)
     }
   }
 
@@ -123,8 +115,12 @@ class Connect4 {
     }
   }
 
-  addPlayer(player) {
-    // not implemented
+  addPlayer(player, connected) {
+    this.messageBox.hide()
+
+    this.playerBox.setPlayerNames(this.originPlayer)
+    this.playerBox.setPlayerConnected(player, connected)
+    this.playerBox.show()
   }
 
   delPlayer(player) {
@@ -138,8 +134,8 @@ class Connect4 {
     this.playerBox.setPlayerConnected(player, connected)
   }
 
-  setCurrentPlayer(player) {
-    this.playerBox.setCurrentPlayer(player)
+  setCurrentPlayer(player, moveRemaining) {
+    this.playerBox.setCurrentPlayer(player, moveRemaining)
     this.currentPlayer = player
   }
 
@@ -191,7 +187,7 @@ class PlayerBox {
       [Color.Red, new Player(Color.Red)],
       [Color.Yellow, new Player(Color.Yellow)],
     ])
-    this.timer = new Timer(30)
+    this.timer = new Timer(0)
   }
 
   hide() {
@@ -225,11 +221,12 @@ class PlayerBox {
     })
   }
 
-  setCurrentPlayer(player) {
+  setCurrentPlayer(player, moveRemaining) {
     this.players.get(Color.Red).setCurrent(player == Color.Red)
     this.players.get(Color.Yellow).setCurrent(player == Color.Yellow)
     
-    this.timer.restart()
+    this.togglePauseIcon(false)
+    this.timer.reset(moveRemaining)
   }
 }
 
@@ -299,12 +296,12 @@ class Timer {
     }
   }
 
-  restart() {
+  reset(duration) {
     if (this.running) {
       this.stop()
     }
 
-    this.setDuration(this.duration)
+    this.setDuration(duration)
     this.start()
   }
 }
