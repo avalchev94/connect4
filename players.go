@@ -37,7 +37,7 @@ func (p *Player) Read() <-chan Message {
 	return p.read
 }
 
-func (p *Player) Disconnected(timeout time.Duration) error {
+func (p *Player) Disconnected(ctx context.Context, timeout time.Duration) error {
 	p.setConnection(nil)
 
 	if timeout <= 0 {
@@ -47,6 +47,8 @@ func (p *Player) Disconnected(timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	for {
 		select {
+		case <-ctx.Done():
+			return nil
 		case <-timer.C:
 			if p.socket == nil {
 				return errors.New("wait for player connection timeouted")
@@ -75,9 +77,9 @@ func (p *Player) setConnection(conn *websocket.Conn) {
 	p.socket = conn
 }
 
-func (p *Player) ProcessMessages(parentCtx context.Context) error {
+func (p *Player) ProcessMessages(ctx context.Context) error {
 	errorChan := make(chan error, 2)
-	ctx, cancelFunc := context.WithCancel(parentCtx)
+	childCtx, cancelFunc := context.WithCancel(ctx)
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -88,11 +90,12 @@ func (p *Player) ProcessMessages(parentCtx context.Context) error {
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-childCtx.Done():
+				errorChan <- nil
 				return
 			default:
 				var msg Message
-				if err := wsjson.Read(ctx, p.socket, &msg); err != nil {
+				if err := wsjson.Read(childCtx, p.socket, &msg); err != nil {
 					errorChan <- errors.WithMessage(err, "Failed to read message")
 					return
 				}
@@ -106,10 +109,11 @@ func (p *Player) ProcessMessages(parentCtx context.Context) error {
 		defer wg.Done()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-childCtx.Done():
+				errorChan <- nil
 				return
 			case msg := <-p.send:
-				if err := wsjson.Write(ctx, p.socket, msg); err != nil {
+				if err := wsjson.Write(childCtx, p.socket, msg); err != nil {
 					// failed to send the message, add it back
 					p.send <- msg
 

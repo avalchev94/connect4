@@ -2,8 +2,6 @@ package tarantula
 
 import (
 	"context"
-	"log"
-	"sync"
 	"time"
 
 	"github.com/avalchev94/tarantula/games"
@@ -14,12 +12,12 @@ import (
 
 type Room struct {
 	game       games.Game
-	mutex      *sync.Mutex
 	players    Players
+	logger     Logger
 	join       chan chanMessage
+	leave      chan chanMessage
 	connect    chan chanMessage
 	disconnect chan chanMessage
-	leave      chan chanMessage
 }
 
 type chanMessage struct {
@@ -31,12 +29,20 @@ type chanMessage struct {
 func NewRoom(game games.Game) *Room {
 	return &Room{
 		game:       game,
-		mutex:      &sync.Mutex{},
 		players:    Players{},
+		logger:     &dummyLogger{},
 		join:       make(chan chanMessage),
+		leave:      make(chan chanMessage),
 		connect:    make(chan chanMessage),
 		disconnect: make(chan chanMessage),
-		leave:      make(chan chanMessage),
+	}
+}
+
+func (r *Room) SetLogger(logger Logger) {
+	if logger != nil {
+		r.logger = logger
+	} else {
+		r.logger = dummyLogger{}
 	}
 }
 
@@ -77,25 +83,29 @@ func (r *Room) Connect(uuid UUID, conn *websocket.Conn) error {
 	return <-errChan
 }
 
-func (r *Room) Run() {
+func (r *Room) Run(ctx context.Context) {
 	var (
 		moveTimer     = timerx.NewTimer(30 * time.Second)
 		currentPlayer = NewPlayer("")
 	)
 	moveTimer.Pause()
 
+	r.logger.Info("event loop running...")
+
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case msg := <-r.join:
-			if err := r.handleJoin(msg.uuid); msg.errChan != nil {
+			if err := r.handleJoin(ctx, msg.uuid); msg.errChan != nil {
 				msg.errChan <- err
 			}
 		case msg := <-r.connect:
-			if err := r.handleConnect(msg.uuid, msg.conn); msg.errChan != nil {
+			if err := r.handleConnect(ctx, msg.uuid, msg.conn); msg.errChan != nil {
 				msg.errChan <- err
 			}
 		case msg := <-r.disconnect:
-			if err := r.handleDisconnect(msg.uuid); msg.errChan != nil {
+			if err := r.handleDisconnect(ctx, msg.uuid); msg.errChan != nil {
 				msg.errChan <- err
 			}
 		case msg := <-r.leave:
@@ -105,39 +115,60 @@ func (r *Room) Run() {
 		case state := <-r.game.StateUpdated():
 			switch state {
 			case games.Running:
+				_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
+				moveTimer.Start()
+
 				r.players.SendAll(Message{
 					Type: GameStarting,
 					Payload: payloadGameStarting{
-						Staring:       r.game.CurrentPlayer(),
+						Starting:      currentPlayer.id,
 						MoveRemaining: int(moveTimer.Remaining().Seconds()),
 					},
 				})
-
-				_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
-				moveTimer.Start()
+				r.logger.Debugf("game running, on move: %q", currentPlayer.id)
 			case games.Paused:
+				moveTimer.Pause()
+
 				r.players.SendAll(Message{
 					Type: GamePaused,
 				})
-				moveTimer.Pause()
+				r.logger.Debugf("game paused")
 			case games.EndDraw, games.EndWin:
-				r.handleEnd()
 				moveTimer.Stop()
+
+				r.players.SendAll(Message{
+					Type: GameEnded,
+					Payload: payloadGameEnded{
+						State:  r.game.State(),
+						Winner: r.game.CurrentPlayer(),
+					},
+				})
+				r.logger.Debugf("game ended, state: %q, player: %q", r.game.State(), r.game.CurrentPlayer())
 			}
 
 		case <-moveTimer.C:
-			r.handleTimeExpired(currentPlayer)
+			if err := r.handleTimeExpired(currentPlayer); err != nil {
+				r.players.SendAll(Message{
+					Type:    GameError,
+					Payload: payloadGameError{err},
+				})
+			}
 
 		case msg := <-currentPlayer.Read():
-			r.handleMove(msg, currentPlayer)
-
-			_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
-			moveTimer.Reset(30 * time.Second)
+			if err := r.handleMove(msg, currentPlayer); err != nil {
+				currentPlayer.Send(Message{
+					Type:    GameError,
+					Payload: payloadGameError{err},
+				})
+			} else {
+				_, currentPlayer = r.findPlayer(r.game.CurrentPlayer())
+				moveTimer.Reset(30 * time.Second)
+			}
 		}
 	}
 }
 
-func (r *Room) handleJoin(uuid UUID) error {
+func (r *Room) handleJoin(ctx context.Context, uuid UUID) error {
 	if _, ok := r.players[uuid]; ok {
 		return errors.Errorf("player with uuid %q already exist", uuid)
 	}
@@ -159,16 +190,16 @@ func (r *Room) handleJoin(uuid UUID) error {
 	r.players.SendBut(msg, player)
 
 	go func() {
-		if err := player.Disconnected(30 * time.Second); err != nil {
-			// log
+		if err := player.Disconnected(ctx, 30*time.Second); err != nil {
 			r.leave <- chanMessage{uuid: uuid}
 		}
 	}()
+	r.logger.Debugf("player %q joined", player.id)
 
 	return nil
 }
 
-func (r *Room) handleConnect(uuid UUID, conn *websocket.Conn) error {
+func (r *Room) handleConnect(ctx context.Context, uuid UUID, conn *websocket.Conn) error {
 	player, ok := r.players[uuid]
 	if !ok {
 		return errors.Errorf("player with uuid %q does not exist", uuid)
@@ -190,16 +221,16 @@ func (r *Room) handleConnect(uuid UUID, conn *websocket.Conn) error {
 	r.players.SendBut(msg, player)
 
 	go func() {
-		if err := player.ProcessMessages(context.TODO()); err != nil {
-			log.Printf("[Room %q] player %q disconected: %v", "name", uuid, err)
+		if err := player.ProcessMessages(ctx); err != nil {
+			r.disconnect <- chanMessage{uuid: uuid}
 		}
-		r.disconnect <- chanMessage{uuid: uuid}
 	}()
+	r.logger.Debugf("player %q connected", player.id)
 
 	return nil
 }
 
-func (r *Room) handleDisconnect(uuid UUID) error {
+func (r *Room) handleDisconnect(ctx context.Context, uuid UUID) error {
 	player, ok := r.players[uuid]
 	if !ok {
 		return errors.Errorf("player with uuid %q does not exist", uuid)
@@ -220,11 +251,11 @@ func (r *Room) handleDisconnect(uuid UUID) error {
 	r.players.SendBut(msg, player)
 
 	go func() {
-		if err := player.Disconnected(30 * time.Second); err != nil {
-			// log
+		if err := player.Disconnected(ctx, 30*time.Second); err != nil {
 			r.leave <- chanMessage{uuid: uuid}
 		}
 	}()
+	r.logger.Debugf("player %q disconnected", player.id)
 
 	return nil
 }
@@ -238,6 +269,7 @@ func (r *Room) handleLeave(uuid UUID) error {
 	if err := r.game.DelPlayer(player.id); err != nil {
 		return nil
 	}
+
 	delete(r.players, uuid)
 
 	msg := Message{
@@ -247,6 +279,8 @@ func (r *Room) handleLeave(uuid UUID) error {
 		},
 	}
 	r.players.SendAll(msg)
+
+	r.logger.Debugf("player %q left", player.id)
 
 	return nil
 }
@@ -262,26 +296,18 @@ func (r *Room) handleMove(msg Message, player *Player) error {
 		return err
 	}
 
+	r.logger.Debugf("player %q made move: %+v", player.id, msg.Payload)
+
 	// send them message to the rest of the players
 	r.players.SendBut(msg, player)
-
-	return nil
-}
-
-func (r *Room) handleEnd() error {
-	msg := Message{
-		Type: GameEnded,
-		Payload: payloadGameEnded{
-			State:  r.game.State(),
-			Winner: r.game.CurrentPlayer(),
-		},
-	}
-
-	r.players.SendAll(msg)
 	return nil
 }
 
 func (r *Room) handleTimeExpired(player *Player) error {
+	if err := r.game.Move(player.id, moveData{Expired: true}); err != nil {
+		return err
+	}
+
 	msg := Message{
 		Type: PlayerMoveExpired,
 		Payload: payloadPlayer{
@@ -290,7 +316,7 @@ func (r *Room) handleTimeExpired(player *Player) error {
 	}
 	r.players.SendBut(msg, player)
 
-	return r.game.Move(player.id, moveData{Expired: true})
+	return nil
 }
 
 func (r *Room) findPlayer(playerID games.PlayerID) (UUID, *Player) {

@@ -12,6 +12,7 @@ const (
 	GameStarting       = MessageType("game_starting")
 	GamePaused         = MessageType("game_paused")
 	GameEnded          = MessageType("game_ended")
+	GameError          = MessageType("game_error")
 	PlayerMove         = MessageType("player_move")
 	PlayerMoveExpired  = MessageType("player_move_expired")
 	PlayerJoined       = MessageType("player_joined")
@@ -26,13 +27,17 @@ type Message struct {
 }
 
 type payloadGameStarting struct {
-	Staring       games.PlayerID `json:"starting"`
+	Starting      games.PlayerID `json:"starting"`
 	MoveRemaining int            `json:"moveRemaining"`
 }
 
 type payloadGameEnded struct {
 	State  games.GameState `json:"state"`
 	Winner games.PlayerID  `json:"winner"`
+}
+
+type payloadGameError struct {
+	Error error `json:"error"`
 }
 
 type payloadPlayerMove struct {
@@ -62,6 +67,10 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 		m.Payload = payload
 	case GameEnded:
 		var payload payloadGameEnded
+		err = json.Unmarshal(msg["payload"], &payload)
+		m.Payload = payload
+	case GameError:
+		var payload payloadGameError
 		err = json.Unmarshal(msg["payload"], &payload)
 		m.Payload = payload
 	case PlayerMove:

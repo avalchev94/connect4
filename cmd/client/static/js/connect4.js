@@ -18,7 +18,7 @@ class Connect4 {
 
     this.originPlayer = playerID
     this.currentPlayer = null
-    this.onaction = null
+    this.onMove = null
     
     this.field = []
     this.playerBox = new PlayerBox()
@@ -70,6 +70,11 @@ class Connect4 {
   }
 
   start(player, moveRemaining) {
+    this.messageBox.hide()
+
+    this.playerBox.setPlayerNames(this.originPlayer)
+    this.playerBox.show()
+
     this.setCurrentPlayer(player, moveRemaining)
   }
 
@@ -77,17 +82,11 @@ class Connect4 {
     this.playerBox.pause()
   }
 
-  move(player, move) {
-    if (move.row == -1) {
-      for (var row = this.field.length - 1; row >= 0 ; row--) {
-        var classes = this.field[row][move.col].classList
-        if (!classes.contains('red') && !classes.contains('yellow')) {
-          move.row = row
-          break;
-        }
-      }
-    }
+  error(errMsg) {
+    alert(`Error in game logic: ${errMsg}`)
+  }
 
+  move(player, move) {
     // change field class name to colorize the table cell
     this.field[move.row][move.col].classList.add(player)
     if (player == Color.Red) {
@@ -116,11 +115,7 @@ class Connect4 {
   }
 
   addPlayer(player, connected) {
-    this.messageBox.hide()
-
-    this.playerBox.setPlayerNames(this.originPlayer)
     this.playerBox.setPlayerConnected(player, connected)
-    this.playerBox.show()
   }
 
   delPlayer(player) {
@@ -144,11 +139,23 @@ class Connect4 {
   }
 
   onColumnClick(col) {
-    if ( this.currentPlayer 
-      && this.originPlayer
-      && this.currentPlayer == this.originPlayer
-    ) {
-      this.onaction({col: col, row: -1})
+    if (this.currentPlayer && this.currentPlayer == this.originPlayer) {
+      var move = {col: col, row: -1}
+      
+      for (var row = this.field.length - 1; row >= 0 ; row--) {
+        var classes = this.field[row][move.col].classList
+        if (!classes.contains('red') && !classes.contains('yellow')) {
+          move.row = row
+          break;
+        }
+      }
+
+      if (move.row == -1) {
+        alert("column is full, choose another")
+        return
+      }
+
+      this.onMove(move)
     }
   }
 }
@@ -208,7 +215,7 @@ class PlayerBox {
   }
 
   setPlayerConnected(player, connected) {
-    //this.players[player].setConnected(connected)
+    this.players.get(player).setConnected(connected)
   }
 
   setPlayerNames(player) {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -8,9 +9,8 @@ import (
 	"github.com/avalchev94/tarantula"
 	"github.com/avalchev94/tarantula/games"
 	"github.com/avalchev94/tarantula/games/connect4"
-	"nhooyr.io/websocket"
-
 	"github.com/gorilla/mux"
+	"nhooyr.io/websocket"
 )
 
 var (
@@ -58,15 +58,15 @@ func handleNewRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	room := tarantula.NewRoom(game)
+	room.SetLogger(tarantula.NewLogger(body.Name))
 	if err := rooms.Add(body.Name, room); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("[Room %q] was created.", body.Name)
-	w.WriteHeader(http.StatusCreated)
+	go room.Run(context.TODO())
 
-	go room.Run()
+	w.WriteHeader(http.StatusCreated)
 }
 
 func handleJoinRoom(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +124,7 @@ func handleConnectRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := room.Connect(cookie.UUID, conn); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		conn.Close(http.StatusBadRequest, err.Error())
 	}
 }
 
