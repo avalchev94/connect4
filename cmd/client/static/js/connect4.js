@@ -15,6 +15,7 @@ class Connect4 {
   constructor(settings, playerID) {
     this.cols = settings.cols
     this.rows = settings.rows
+    this.state = State.Starting
 
     this.originPlayer = playerID
     this.currentPlayer = null
@@ -58,8 +59,7 @@ class Connect4 {
       this.start(gameProgress.player)
       break
     case State.Paused:
-      this.messageBox.show(Message.WaitingOpponent)
-      this.playerBox.hide()
+      this.pause()
       break
     case State.EndWin:
     case State.EndDraw:
@@ -70,8 +70,9 @@ class Connect4 {
   }
 
   start(player, moveRemaining) {
-    this.messageBox.hide()
+    this.state = State.Running
 
+    this.messageBox.hide()
     this.playerBox.setPlayerNames(this.originPlayer)
     this.playerBox.show()
 
@@ -79,6 +80,8 @@ class Connect4 {
   }
 
   pause() {
+    this.state = State.Paused
+
     this.playerBox.pause()
   }
 
@@ -97,9 +100,12 @@ class Connect4 {
   }
 
   moveExpired(player) {
+    alert(`Move expired for ${player} player`)
   }
 
   end(state, winner) {
+    this.state = state
+
     switch (state) {
     case State.EndWin:
       if (winner == this.originPlayer) {
@@ -119,6 +125,7 @@ class Connect4 {
   }
 
   delPlayer(player) {
+    alert(`Player ${player} left the game`)
   }
 
   setPlayerStatus(player, connected) {
@@ -139,7 +146,7 @@ class Connect4 {
   }
 
   onColumnClick(col) {
-    if (this.currentPlayer && this.currentPlayer == this.originPlayer) {
+    if (this.currentPlayer && this.currentPlayer == this.originPlayer && this.state == State.Running) {
       var move = {col: col, row: -1}
       
       for (var row = this.field.length - 1; row >= 0 ; row--) {
