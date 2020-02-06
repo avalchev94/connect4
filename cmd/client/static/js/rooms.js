@@ -1,3 +1,5 @@
+var hostname = document.location.hostname
+
 function updateRooms() {
   var table = document.getElementsByClassName('rooms-table')[0]
   var noRooms = document.getElementsByClassName('no-rooms')[0]
@@ -8,16 +10,16 @@ function updateRooms() {
   }
 
   // fetch new rooms
-  fetch('http://localhost:8080/rooms').then(function(resp){
+  fetch(`http://${hostname}:8080/rooms`).then(function(resp){
     resp.json().then(function(rooms){
       rooms.forEach(function(room){
         var row = table.insertRow()
-        row.insertCell().innerText = room.Name
-        row.insertCell().innerText = room.Players + '/2'
-        row.insertCell().innerText = room.Game
+        row.insertCell().innerText = room.name
+        row.insertCell().innerText = room.players + '/2'
+        row.insertCell().innerText = room.game
         var joinButton = row.insertCell()
         joinButton.className = 'join_button'
-        joinButton.onclick = joinRoom.bind(null, room.Name)
+        joinButton.onclick = joinRoom.bind(null, room)
       })
     }).then(function(){
       noRooms.hidden = table.rows.length > 1
@@ -27,18 +29,49 @@ function updateRooms() {
 }
 
 function createRoom() {
-  var roomName = document.getElementsByName('room_name')[0].value
+  var body = {
+    name: document.getElementsByName('room_name')[0].value,
+    game: document.getElementsByName('game_name')[0].value
+    // settigs
+  }
   
-  fetch('http://localhost:8080/new?name='+roomName).then(function(resp){
+  fetch(`http://${hostname}:8080/rooms/new`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  .then((resp) => {
     if (resp.status == 201) {
-      window.location.href = "/connect4/"+roomName
+      joinRoom(body)
+    } else {
+      throw resp.text()
     }
-  })  
+  })
+  .catch((error) => {
+    error.then((message) => {
+      alert(message)
+    })
+  })
+
 }
 
-function joinRoom(roomName) {
-  window.location.href = "/connect4/"+roomName
-} 
+function joinRoom(room) {
+  fetch(`http://${hostname}:8080/rooms/${room.name}/join`, {
+    method: 'POST',
+    credentials: 'include'
+  })
+  .then((resp) => {
+    if (resp.ok) {
+      document.location.href = `/${room.game}/${room.name}`
+    } else {
+      throw resp.text()
+    }
+  })
+  .catch((error) => {
+    error.then((message) => {
+      alert(message)
+    })
+  })
+}
 
 window.onload = function() {
   updateRooms()
